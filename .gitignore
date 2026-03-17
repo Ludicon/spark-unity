@@ -25,8 +25,9 @@
 .vs/
 .idea/
 
-# Spark shader sources (external dependency)
-*.hlsli
+# Spark shader sources - do not commit
+spark_*.hlsli
+spark_*.hlsli.meta
 
 # OS
 .DS_Store
