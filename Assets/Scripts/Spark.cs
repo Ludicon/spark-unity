@@ -10,10 +10,16 @@ using UnityEngine.Experimental.Rendering;
 /// </summary>
 public enum SparkFormat
 {
+    // Generic — auto-resolved to the best supported format on the current GPU
+    R,              // Single channel → BC4_R or EAC_R
+    RG,             // Two channels   → BC5_RG or EAC_RG
+    RGB,            // Color          → BC7_RGB, ASTC_4x4_RGB, ETC2_RGB, or BC1_RGB
+    RGBA,           // Color + alpha  → BC7_RGBA, ASTC_4x4_RGBA, ETC2_RGBA, or BC3_RGBA
+
     // Desktop formats
     BC1_RGB,        // RGB, 4 bpp
     BC3_RGBA,       // RGBA, 8 bpp
-    BC3_RGBM,       // HDR via RGBM encoding, 8 bpp
+    //BC3_RGBM,       // HDR via RGBM encoding, 8 bpp
     BC4_R,          // Single channel (R), 4 bpp
     BC5_RG,         // Two channels (RG), 8 bpp — ideal for normal maps
     BC7_RGB,        // High-quality RGB, 8 bpp
@@ -22,16 +28,11 @@ public enum SparkFormat
     // Mobile formats
     ASTC_4x4_RGB,   // RGB, 8 bpp
     ASTC_4x4_RGBA,  // RGBA, 8 bpp
+    //ASTC_4x4_RGBM,  // HDR via RGBM encoding, 8 bpp
     ETC2_RGB,       // RGB, 4 bpp
     ETC2_RGBA,      // RGBA, 8 bpp
     EAC_R,          // Single channel (R), 4 bpp
     EAC_RG,         // Two channels (RG), 8 bpp
-
-    // Generic — auto-resolved to the best supported format on the current GPU
-    R,              // Single channel → BC4_R or EAC_R
-    RG,             // Two channels   → BC5_RG or EAC_RG
-    RGB,            // Color          → BC7_RGB, ASTC_4x4_RGB, ETC2_RGB, or BC1_RGB
-    RGBA,           // Color + alpha  → BC7_RGBA, ASTC_4x4_RGBA, ETC2_RGBA, or BC3_RGBA
 }
 
 /// <summary>
@@ -45,9 +46,7 @@ public enum SparkQuality
 }
 
 /// <summary>
-/// GPU texture compression using Spark compute shaders.
-///
-/// Inspired by the spark.js API — designed to make GPU texture encoding trivial:
+/// GPU texture compression using Spark codecs.
 ///
 ///   // One-liner
 ///   Texture2D compressed = Spark.EncodeTexture(source, SparkFormat.BC7_RGB);
@@ -57,10 +56,6 @@ public enum SparkQuality
 ///
 ///   // Auto-select best format for current GPU
 ///   Texture2D compressed = Spark.EncodeTexture(source, SparkFormat.RGB);
-///
-///   // Load a PNG from disk and encode
-///   Texture2D source = Spark.LoadTexture("/path/to/image.png");
-///   Texture2D compressed = Spark.EncodeTexture(source, SparkFormat.BC7_RGB);
 ///
 ///   // Preload shaders to avoid first-encode hitch
 ///   Spark.Preload(SparkQuality.Medium, SparkFormat.RGB, SparkFormat.RGBA);
@@ -214,12 +209,21 @@ public static class Spark
 
     static bool IsDesktopFormat(SparkFormat format)
     {
-        return format <= SparkFormat.BC7_RGBA;
+        switch (format)
+        {
+            case SparkFormat.BC1_RGB:
+            case SparkFormat.BC3_RGBA:
+            case SparkFormat.BC4_R:
+            case SparkFormat.BC5_RG:
+            case SparkFormat.BC7_RGB:
+            case SparkFormat.BC7_RGBA:
+                return true;
+            default:
+                return false;
+        }
     }
 
-    /// <summary>
-    /// Formats whose encoded block fits in uint2 (8 bytes). Everything else uses uint4 (16 bytes).
-    /// </summary>
+    // Formats whose encoded block fits in uint2 (8 bytes). Everything else uses uint4 (16 bytes).
     static bool IsSmallBlockFormat(SparkFormat format)
     {
         return format == SparkFormat.BC1_RGB
@@ -236,13 +240,14 @@ public static class Spark
         {
             case SparkFormat.BC1_RGB:        return $"spark_encode_bc1_rgb_q{q}";
             case SparkFormat.BC3_RGBA:       return $"spark_encode_bc3_rgba_q{q}";
-            case SparkFormat.BC3_RGBM:       return $"spark_encode_bc3_rgbm_q{q}";
+            //case SparkFormat.BC3_RGBM:       return $"spark_encode_bc3_rgbm_q{q}";
             case SparkFormat.BC4_R:          return $"spark_encode_bc4_r_q{(q < 2 ? 1 : 2)}";
             case SparkFormat.BC5_RG:         return $"spark_encode_bc5_rg_q{(q < 2 ? 1 : 2)}";
             case SparkFormat.BC7_RGB:        return $"spark_encode_bc7_rgb_q{q}";
             case SparkFormat.BC7_RGBA:       return $"spark_encode_bc7_rgba_q{q}";
             case SparkFormat.ASTC_4x4_RGB:   return $"spark_encode_astc_4x4_rgb_q{q}";
             case SparkFormat.ASTC_4x4_RGBA:  return $"spark_encode_astc_4x4_rgba_q{q}";
+            //case SparkFormat.ASTC_4x4_RGBM:  return $"spark_encode_astc_4x4_rgbm_q{q}";
             case SparkFormat.ETC2_RGB:       return $"spark_encode_etc2_rgb_q{q}";
             case SparkFormat.ETC2_RGBA:      return $"spark_encode_etc2_rgba_q{q}";
             case SparkFormat.EAC_R:          return $"spark_encode_eac_r_q{q}";
@@ -259,8 +264,8 @@ public static class Spark
                 return srgb ? GraphicsFormat.RGBA_DXT1_SRGB  : GraphicsFormat.RGBA_DXT1_UNorm;
             case SparkFormat.BC3_RGBA:
                 return srgb ? GraphicsFormat.RGBA_DXT5_SRGB  : GraphicsFormat.RGBA_DXT5_UNorm;
-            case SparkFormat.BC3_RGBM:
-                return GraphicsFormat.RGBA_DXT5_UNorm;
+            // case SparkFormat.BC3_RGBM:
+            //     return GraphicsFormat.RGBA_DXT5_UNorm;
             case SparkFormat.BC4_R:
                 return GraphicsFormat.R_BC4_UNorm;
             case SparkFormat.BC5_RG:
@@ -271,6 +276,8 @@ public static class Spark
             case SparkFormat.ASTC_4x4_RGB:
             case SparkFormat.ASTC_4x4_RGBA:
                 return srgb ? GraphicsFormat.RGBA_ASTC4X4_SRGB : GraphicsFormat.RGBA_ASTC4X4_UNorm;
+            // case SparkFormat.BC3_RGBM:
+            //     return GraphicsFormat.RGBA_ASTC4X4_UNorm;
             case SparkFormat.ETC2_RGB:
                 return srgb ? GraphicsFormat.RGB_ETC2_SRGB   : GraphicsFormat.RGB_ETC2_UNorm;
             case SparkFormat.ETC2_RGBA:
@@ -387,7 +394,16 @@ public static class Spark
 
     static bool IsGenericFormat(SparkFormat format)
     {
-        return format >= SparkFormat.R;
+        switch (format)
+        {
+            case SparkFormat.R:
+            case SparkFormat.RG:
+            case SparkFormat.RGB:
+            case SparkFormat.RGBA:
+                return true;
+            default:
+                return false;
+        }
     }
 
     static void EnsureFormatsResolved()
@@ -410,10 +426,6 @@ public static class Spark
         return candidates[0];
     }
 
-    /// <summary>
-    /// Resolve a generic format (R, RG, RGB, RGBA) to the best concrete format
-    /// supported on the current GPU. Concrete formats pass through unchanged.
-    /// </summary>
     public static SparkFormat ResolveFormat(SparkFormat format)
     {
         switch (format)

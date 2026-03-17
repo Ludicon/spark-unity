@@ -14,7 +14,7 @@ using Debug = UnityEngine.Debug;
 /// Usage:
 ///   1. Select a source texture from the list.
 ///   2. Pick a compression format and quality level.
-///   3. Press "Encode" to compress on the GPU.
+///   3. Texture is compressed in the GPU whenever settings change.
 ///   4. Compare original vs compressed side-by-side.
 /// </summary>
 public class SparkDemo : MonoBehaviour
