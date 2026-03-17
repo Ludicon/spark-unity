@@ -43,3 +43,7 @@ Spark.ReleaseCache();
 ## Demo
 
 The included `SparkDemo` scene loads PNG textures from `StreamingAssets/SparkTextures/` and provides a UI to compare original vs compressed textures across formats and quality levels.
+
+## Requirements
+
+Tested on Unity 6.3 LTS (6000.3.11f1).
