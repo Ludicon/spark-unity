@@ -25,6 +25,9 @@
 .vs/
 .idea/
 
+# Spark shader sources (external dependency)
+*.hlsli
+
 # OS
 .DS_Store
 Thumbs.db
