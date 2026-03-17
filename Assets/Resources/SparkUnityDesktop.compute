@@ -1,0 +1,206 @@
+
+#pragma editor_sync_compilation
+
+#pragma kernel spark_encode_bc1_rgb_q0 FORMAT_BC1_RGB SPK_QUALITY=0
+#pragma kernel spark_encode_bc1_rgb_q1 FORMAT_BC1_RGB SPK_QUALITY=1
+#pragma kernel spark_encode_bc1_rgb_q2 FORMAT_BC1_RGB SPK_QUALITY=2
+
+#pragma kernel spark_encode_bc3_rgba_q0 FORMAT_BC3_RGBA SPK_QUALITY=0
+#pragma kernel spark_encode_bc3_rgba_q1 FORMAT_BC3_RGBA SPK_QUALITY=1
+#pragma kernel spark_encode_bc3_rgba_q2 FORMAT_BC3_RGBA SPK_QUALITY=2
+
+// #pragma kernel spark_encode_bc3_ycocg_q0 FORMAT_BC3_YCOCG SPK_QUALITY=0
+// #pragma kernel spark_encode_bc3_ycocg_q1 FORMAT_BC3_YCOCG SPK_QUALITY=1
+// #pragma kernel spark_encode_bc3_ycocg_q2 FORMAT_BC3_YCOCG SPK_QUALITY=2
+
+#pragma kernel spark_encode_bc3_rgbm_q0 FORMAT_BC3_RGBM SPK_QUALITY=0
+#pragma kernel spark_encode_bc3_rgbm_q1 FORMAT_BC3_RGBM SPK_QUALITY=1
+#pragma kernel spark_encode_bc3_rgbm_q2 FORMAT_BC3_RGBM SPK_QUALITY=2
+
+#pragma kernel spark_encode_bc4_r_q1 FORMAT_BC4_R SPK_QUALITY=0
+#pragma kernel spark_encode_bc4_r_q2 FORMAT_BC4_R SPK_QUALITY=1
+
+#pragma kernel spark_encode_bc5_rg_q1 FORMAT_BC5_RG SPK_QUALITY=0
+#pragma kernel spark_encode_bc5_rg_q2 FORMAT_BC5_RG SPK_QUALITY=1
+
+#pragma kernel spark_encode_bc7_rgb_q0 FORMAT_BC7_RGB SPK_QUALITY=0
+#pragma kernel spark_encode_bc7_rgb_q1 FORMAT_BC7_RGB SPK_QUALITY=1
+#pragma kernel spark_encode_bc7_rgb_q2 FORMAT_BC7_RGB SPK_QUALITY=2
+
+#pragma kernel spark_encode_bc7_rgba_q0 FORMAT_BC7_RGBA SPK_QUALITY=0
+#pragma kernel spark_encode_bc7_rgba_q1 FORMAT_BC7_RGBA SPK_QUALITY=1
+#pragma kernel spark_encode_bc7_rgba_q2 FORMAT_BC7_RGBA SPK_QUALITY=2
+
+
+#if SHADER_API_D3D11
+    #define SPK_ENABLE_FP16 0
+    #define SPK_ENABLE_FP16_INPUT 0
+#else
+    #define SPK_ENABLE_FP16 0
+    #define SPK_ENABLE_FP16_INPUT 0
+    #endif
+
+#pragma use_dxc metal vulkan
+#pragma exclude_renderers gles
+
+#if SHADER_API_METAL
+    // Avoid fastmath optimizations. This only works in metal. What happens on other platforms?
+    #pragma disable_fastmath
+#endif
+
+#if UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
+    //#pragma dxc_option -enable-16bit-types
+#endif
+
+#if SHADER_API_GLES3 || SHADER_API_D3D11
+    // In GLES target mediump/min16 types.
+    #define SPK_HLSL_EXPLICIT_FP16 0
+    #define SPK_HLSL_EXPLICIT_INT16 0
+#else
+    // Otherwise use explicit 16 bit types.
+    #define SPK_HLSL_EXPLICIT_FP16 0
+    #define SPK_HLSL_EXPLICIT_INT16 0
+#endif
+
+#if SHADER_API_GLES3 || SHADER_API_VULKAN
+    #define SPK_PREFER_ALU_TABLES 1
+    #define SPK_ALLOW_INLINE_CONSTANTS 0
+#elif SHADER_API_METAL
+    #define SPK_PREFER_ALU_TABLES 0
+    #define SPK_ALLOW_INLINE_CONSTANTS 1
+#elif SHADER_API_D3D11 || SHADER_API_D3D12
+    #define SPK_PREFER_ALU_TABLES 1
+    #define SPK_ALLOW_INLINE_CONSTANTS 1
+#endif
+
+// Default to perceptual metric.
+#define SPK_BCN_PERCEPTUAL 1
+
+#include "SparkUnityShared.hlsli"
+
+
+///////////////////////////////////
+// Spark Kernels
+
+#if defined(FORMAT_BC1_RGB)
+
+    void spark_encode_bc1_rgb_tid(uint2 tid)
+    {
+        spk_float3 colors[16];
+        LoadTexelBlockRGB(_Src, sampler_Src, tid, colors);
+        //LinearToSRGB(colors);
+
+        _Dst[tid] = pack_uint2(spark_encode_bc1_rgb(colors, SPK_QUALITY));
+    }
+
+    SPARK_KERNEL(spark_encode_bc1_rgb, _q0);
+    SPARK_KERNEL(spark_encode_bc1_rgb, _q1);
+    SPARK_KERNEL(spark_encode_bc1_rgb, _q2);
+
+#endif
+
+
+#if defined(FORMAT_BC3_RGBA)
+
+    void spark_encode_bc3_rgba_tid(uint2 tid)
+    {
+        spk_float3 colors[16];
+        spk_float alphas[16];
+        LoadTexelBlockRGBA(_Src, sampler_Src, tid, colors, alphas);
+        //LinearToSRGB(colors);
+
+        _Dst[tid] = spark_encode_bc3_rgba(colors, alphas, SPK_QUALITY);
+    }
+
+    SPARK_KERNEL(spark_encode_bc3_rgba, _q0);
+    SPARK_KERNEL(spark_encode_bc3_rgba, _q1);
+    SPARK_KERNEL(spark_encode_bc3_rgba, _q2);
+
+#endif
+
+
+#if defined(FORMAT_BC3_RGBM)
+
+    void spark_encode_bc3_rgbm_tid(uint2 tid)
+    {
+        spk_float3 colors[16];
+        LoadTexelBlockRGB(_Src, sampler_Src, tid, colors);
+        //LinearToSRGB(colors);
+
+        _Dst[tid] = spark_encode_bc3_rgbm(colors, SPK_QUALITY);
+    }
+
+    SPARK_KERNEL(spark_encode_bc3_rgbm, _q0);
+    SPARK_KERNEL(spark_encode_bc3_rgbm, _q1);
+    SPARK_KERNEL(spark_encode_bc3_rgbm, _q2);
+
+#endif
+
+
+#if defined(FORMAT_BC4_R)
+
+    void spark_encode_bc4_r_tid(uint2 tid)
+    {
+        spk_float alphas[16];
+        LoadTexelBlockR(_Src, sampler_Src, tid, alphas);
+
+        _Dst[tid] = pack_uint2(spark_encode_bc4_r(alphas, SPK_QUALITY));
+    }
+
+    SPARK_KERNEL(spark_encode_bc4_r, _q1);
+    SPARK_KERNEL(spark_encode_bc4_r, _q2);
+
+#endif
+
+
+#if defined(FORMAT_BC5_RG)
+
+    void spark_encode_bc5_rg_tid(uint2 tid)
+    {
+        spk_float x[16];
+        spk_float y[16];
+        LoadTexelBlockRG(_Src, sampler_Src, tid, x, y);
+
+        _Dst[tid] = spark_encode_bc5_rg(x, y, SPK_QUALITY);
+    }
+
+    SPARK_KERNEL(spark_encode_bc5_rg, _q1);
+    SPARK_KERNEL(spark_encode_bc5_rg, _q2);
+
+#endif
+
+
+#if defined(FORMAT_BC7_RGB)
+
+    void spark_encode_bc7_rgb_tid(uint2 tid)
+    {
+        spk_float3 colors[16];
+        LoadTexelBlockRGB(_Src, sampler_Src, tid, colors);
+        //LinearToSRGB(colors);
+
+        _Dst[tid] = spark_encode_bc7_rgb(colors, SPK_QUALITY);
+    }
+
+    SPARK_KERNEL(spark_encode_bc7_rgb, _q0);
+    SPARK_KERNEL(spark_encode_bc7_rgb, _q1);
+    SPARK_KERNEL(spark_encode_bc7_rgb, _q2);
+
+#endif
+
+
+#if defined(FORMAT_BC7_RGBA)
+
+    void spark_encode_bc7_rgba_tid(uint2 tid)
+    {
+        spk_float4 colors[16];
+        LoadTexelBlockRGBA(_Src, sampler_Src, tid, colors);
+        //LinearToSRGB(colors);
+
+        _Dst[tid] = spark_encode_bc7_rgba(colors, SPK_QUALITY);
+    }
+
+    SPARK_KERNEL(spark_encode_bc7_rgba, _q0);
+    SPARK_KERNEL(spark_encode_bc7_rgba, _q1);
+    SPARK_KERNEL(spark_encode_bc7_rgba, _q2);
+
+#endif
