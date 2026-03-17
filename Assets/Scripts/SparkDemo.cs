@@ -47,7 +47,10 @@ public class SparkDemo : MonoBehaviour
     {
         LoadTexturesFromStreamingAssets();
 
-        Spark.Preload(_quality, SparkFormat.RGB, SparkFormat.RGBA, SparkFormat.RG, SparkFormat.R);
+        // Preload most common formats at all quality levels.
+        Spark.Preload(SparkQuality.Low, SparkFormat.RGB, SparkFormat.RGBA, SparkFormat.RG, SparkFormat.R);
+        Spark.Preload(SparkQuality.Medium, SparkFormat.RGB, SparkFormat.RGBA, SparkFormat.RG, SparkFormat.R);
+        Spark.Preload(SparkQuality.High, SparkFormat.RGB, SparkFormat.RGBA, SparkFormat.RG, SparkFormat.R);
 
         if (_sourceTextures.Count == 0)
             _status = "No textures found. Place PNGs in StreamingAssets/SparkTextures/.";
