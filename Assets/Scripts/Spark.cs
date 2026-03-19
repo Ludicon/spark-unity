@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.Profiling;
+using UnityEngine.Rendering;
 
 /// <summary>
 /// Texture compression format.
@@ -116,19 +118,27 @@ public static class Spark
 
         var rt = GetOrCreateRT(blockW, blockH, outputFmt);
 
-        // Dispatch compute shader.
-        shader.SetTexture(kernel, "_Src", source);
-        shader.SetTexture(kernel, "_Dst", rt);
-
-        int groupsX = (blockW + 15) / 16;
-        int groupsY = (blockH + 15) / 16;
-        shader.Dispatch(kernel, groupsX, groupsY, 1);
-
         // Create the compressed texture and copy entirely on the GPU.
         // The uint RT pixels map 1:1 to compressed blocks (same byte layout).
         GraphicsFormat compressedFmt = GetCompressedFormat(format, srgb);
         var result = new Texture2D(width, height, compressedFmt, TextureCreationFlags.None);
-        Graphics.CopyTexture(rt, 0, 0, result, 0, 0);
+
+
+        int groupsX = (blockW + 15) / 16;
+        int groupsY = (blockH + 15) / 16;
+
+        // Dispatch via CommandBuffer so we get GPU profiler samples.
+        var cmd = GetCommandBuffer();
+        cmd.Clear();
+        cmd.BeginSample(GpuSampleName);
+        cmd.SetComputeTextureParam(shader, kernel, "_Src", source);
+        cmd.SetComputeTextureParam(shader, kernel, "_Dst", rt);
+        cmd.DispatchCompute(shader, kernel, groupsX, groupsY, 1);
+        cmd.CopyTexture(rt, 0, 0, result, 0, 0);
+        cmd.EndSample(GpuSampleName);
+        Graphics.ExecuteCommandBuffer(cmd);
+
+        //Graphics.CopyTexture(rt, 0, 0, result, 0, 0);
         return result;
     }
 
@@ -166,6 +176,44 @@ public static class Spark
         {
             UnityEngine.Object.Destroy(s_warmupSrc);
             s_warmupSrc = null;
+        }
+    }
+
+    // ───────────────────────────────────────────────
+    //  GPU timing
+    // ───────────────────────────────────────────────
+
+    const string GpuSampleName = "SparkEncode";
+    static CommandBuffer s_cmd;
+    static Recorder s_gpuRecorder;
+
+    static CommandBuffer GetCommandBuffer()
+    {
+        if (s_cmd == null)
+            s_cmd = new CommandBuffer { name = GpuSampleName };
+        return s_cmd;
+    }
+
+    /// <summary>
+    /// GPU time of the last encode in milliseconds (from GPU timestamp queries).
+    /// Updated one frame after the encode — returns 0 until the first result is available.
+    /// </summary>
+    public static float GpuTimeMs
+    {
+        get
+        {
+            if (s_gpuRecorder == null)
+            {
+                var sampler = Sampler.Get(GpuSampleName);
+                if (sampler.isValid)
+                {
+                    s_gpuRecorder = sampler.GetRecorder();
+                    s_gpuRecorder.enabled = true;
+                }
+            }
+            if (s_gpuRecorder != null && s_gpuRecorder.isValid && s_gpuRecorder.gpuElapsedNanoseconds > 0)
+                return s_gpuRecorder.gpuElapsedNanoseconds / 1_000_000f;
+            return 0f;
         }
     }
 

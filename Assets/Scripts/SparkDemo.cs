@@ -1,8 +1,10 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using UnityEngine;
+using UnityEngine.Networking;
 using Debug = UnityEngine.Debug;
 
 /// <summary>
@@ -32,11 +34,11 @@ public class SparkDemo : MonoBehaviour
 
     // Result
     Texture2D _encodedTexture;
-    float     _encodeTimeMs;
-    string    _status = "";
+    float     _cpuTimeMs;
+    string    _status = "Loading textures...";
 
     // Dirty flag — set when options change, consumed in LateUpdate.
-    // Start at 0; set to 2 on change so it skips one frame (lets OnGUI
+    // Set to 2 on change so it skips one frame (lets OnGUI
     // run a matching Layout+Repaint cycle before the texture changes).
     int _encodeCountdown = 2;
 
@@ -45,15 +47,12 @@ public class SparkDemo : MonoBehaviour
 
     void Start()
     {
-        LoadTexturesFromStreamingAssets();
+        StartCoroutine(LoadTexturesFromStreamingAssets());
 
         // Preload most common formats at all quality levels.
         Spark.Preload(SparkQuality.Low, SparkFormat.RGB, SparkFormat.RGBA, SparkFormat.RG, SparkFormat.R);
         Spark.Preload(SparkQuality.Medium, SparkFormat.RGB, SparkFormat.RGBA, SparkFormat.RG, SparkFormat.R);
         Spark.Preload(SparkQuality.High, SparkFormat.RGB, SparkFormat.RGBA, SparkFormat.RG, SparkFormat.R);
-
-        if (_sourceTextures.Count == 0)
-            _status = "No textures found. Place PNGs in StreamingAssets/SparkTextures/.";
     }
 
     void LateUpdate()
@@ -77,21 +76,39 @@ public class SparkDemo : MonoBehaviour
     }
 
     [Header("UI")]
-    [Range(1f, 3f)]
+    [Range(1f, 5f)]
     public float uiScale = 1.5f;
+
+    float EffectiveScale
+    {
+        get
+        {
+            // On mobile, scale so the panel (~340px) is about 1/3 of screen width.
+            if (Application.isMobilePlatform)
+                return Mathf.Max(uiScale, Screen.width / (340f * 3f));
+            return uiScale;
+        }
+    }
 
     void OnGUI()
     {
+        float scale = EffectiveScale;
+
         // Scale the entire UI uniformly.
-        GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(uiScale, uiScale, 1f));
+        GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scale, scale, 1f));
+
+        // Use safe area to avoid rounded corners and notches.
+        Rect safe = Screen.safeArea;
+        float safeX = safe.x / scale;
+        float safeY = safe.y / scale;
+        float safeW = safe.width / scale;
+        float safeH = safe.height / scale;
 
         // Work in scaled coordinates.
         float panelW = 340f;
         float margin = 10f;
-        float scaledW = Screen.width  / uiScale;
-        float scaledH = Screen.height / uiScale;
 
-        GUILayout.BeginArea(new Rect(margin, margin, panelW, scaledH - margin * 2));
+        GUILayout.BeginArea(new Rect(safeX + margin, safeY + margin, panelW, safeH - margin * 2));
 
         // Title
         GUILayout.Label("<b>Spark Texture Compression</b>", RichStyle());
@@ -168,33 +185,32 @@ public class SparkDemo : MonoBehaviour
         GUILayout.EndArea();
 
         // ── Preview area ──
-        DrawPreviews(panelW + margin * 2);
+        float previewX = safeX + panelW + margin * 2;
+        float previewMaxW = safeW - (previewX - safeX) - margin;
+        DrawPreviews(previewX, safeY + margin, previewMaxW);
     }
 
-    void DrawPreviews(float startX)
+    void DrawPreviews(float startX, float startY, float available)
     {
-        float margin    = 10f;
-        float scaledW   = Screen.width;
-        float available = scaledW / uiScale - startX - margin * 2;
-        float previewW  = available / 2f;
-        float previewH  = previewW;
-        float y         = margin;
+        float margin   = 10f;
+        float previewW = (available - margin) / 2f;
+        float previewH = previewW;
 
-        // Original — LoadImage produces correct sRGB tagging, so display directly.
+        // Original
         if (_selectedTexture < _sourceTextures.Count && _sourceTextures[_selectedTexture] != null)
         {
             var src = _sourceTextures[_selectedTexture];
-            GUI.Label(new Rect(startX, y, previewW, 20), $"Original  ({src.width}x{src.height}, {src.graphicsFormat})");
-            GUI.DrawTexture(new Rect(startX, y + 22, previewW, previewH), src, ScaleMode.ScaleToFit);
+            GUI.Label(new Rect(startX, startY, previewW, 20), "Original");
+            GUI.DrawTexture(new Rect(startX, startY + 22, previewW, previewH), src, ScaleMode.ScaleToFit);
         }
 
         // Encoded
         if (_encodedTexture != null)
         {
             float ex = startX + previewW + margin;
-            GUI.Label(new Rect(ex, y, previewW, 20),
-                $"Encoded  ({_encodedTexture.graphicsFormat}, {_encodeTimeMs:F1} ms)");
-            GUI.DrawTexture(new Rect(ex, y + 22, previewW, previewH), _encodedTexture, ScaleMode.ScaleToFit);
+            GUI.Label(new Rect(ex, startY, previewW, 20),
+                $"Encoded  ({_encodedTexture.graphicsFormat})");
+            GUI.DrawTexture(new Rect(ex, startY + 22, previewW, previewH), _encodedTexture, ScaleMode.ScaleToFit);
         }
     }
 
@@ -220,11 +236,9 @@ public class SparkDemo : MonoBehaviour
             var sw = Stopwatch.StartNew();
             _encodedTexture = Spark.EncodeTexture(source, format, _quality, _srgb);
             sw.Stop();
-            _encodeTimeMs = (float)sw.Elapsed.TotalMilliseconds;
+            _cpuTimeMs = (float)sw.Elapsed.TotalMilliseconds;
 
-            var resolved = Spark.ResolveFormat(format);
-            string fmtLabel = resolved != format ? $"{format} → {resolved}" : $"{format}";
-            _status = $"Encoded {source.width}x{source.height} → {fmtLabel} ({_quality}) in {_encodeTimeMs:F1} ms";
+            _status = $"Encoded {format} ({_quality}) — CPU {_cpuTimeMs:F1} ms, GPU {Spark.GpuTimeMs:F1} ms";
             Debug.Log($"[Spark] {_status}");
         }
         catch (System.Exception e)
@@ -239,8 +253,6 @@ public class SparkDemo : MonoBehaviour
     /// <summary>
     /// Load a texture from a PNG or JPG byte array.
     /// </summary>
-    /// <param name="data">Raw PNG or JPG file bytes.</param>
-    /// <param name="linear">True for linear data (normal maps, roughness). False for sRGB color data.</param>
     public static Texture2D LoadTexture(byte[] data, bool linear = false)
     {
         var tex = new Texture2D(2, 2, TextureFormat.RGBA32, true, linear);
@@ -253,7 +265,7 @@ public class SparkDemo : MonoBehaviour
     }
 
     /// <summary>
-    /// Load a texture from a file path (PNG or JPG).
+    /// Load a texture from a file path (PNG or JPG). Not supported on Android StreamingAssets.
     /// </summary>
     public static Texture2D LoadTexture(string filePath, bool linear = false)
     {
@@ -266,7 +278,29 @@ public class SparkDemo : MonoBehaviour
         return tex;
     }
 
-    void LoadTexturesFromStreamingAssets()
+    /// <summary>
+    /// Load textures from StreamingAssets/SparkTextures/.
+    /// On desktop, enumerates the directory directly.
+    /// On mobile (Android), uses UnityWebRequest + textures.txt manifest
+    /// since StreamingAssets is inside the APK.
+    /// </summary>
+    IEnumerator LoadTexturesFromStreamingAssets()
+    {
+        if (Application.isMobilePlatform)
+            yield return LoadTexturesFromManifest();
+        else
+            LoadTexturesFromDirectory();
+
+        if (_sourceTextures.Count == 0)
+            _status = "No textures found. Place PNGs in StreamingAssets/SparkTextures/.";
+        else
+        {
+            _status = "";
+            _encodeCountdown = 2;
+        }
+    }
+
+    void LoadTexturesFromDirectory()
     {
         string dir = Path.Combine(Application.streamingAssetsPath, "SparkTextures");
         if (!Directory.Exists(dir))
@@ -282,13 +316,55 @@ public class SparkDemo : MonoBehaviour
         {
             try
             {
-                var tex = SparkDemo.LoadTexture(file);
+                var tex = LoadTexture(file);
                 _sourceTextures.Add(tex);
                 Debug.Log($"[SparkDemo] Loaded {tex.name} ({tex.width}x{tex.height})");
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 Debug.LogWarning($"[SparkDemo] Failed to load {file}: {e.Message}");
+            }
+        }
+    }
+
+    IEnumerator LoadTexturesFromManifest()
+    {
+        string basePath = Application.streamingAssetsPath + "/SparkTextures";
+
+        using (var req = UnityWebRequest.Get(basePath + "/textures.txt"))
+        {
+            yield return req.SendWebRequest();
+            if (req.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogWarning($"[SparkDemo] Could not load manifest: {req.error}");
+                yield break;
+            }
+
+            string[] filenames = req.downloadHandler.text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (string filename in filenames)
+            {
+                using (var texReq = UnityWebRequest.Get(basePath + "/" + filename.Trim()))
+                {
+                    yield return texReq.SendWebRequest();
+                    if (texReq.result != UnityWebRequest.Result.Success)
+                    {
+                        Debug.LogWarning($"[SparkDemo] Failed to load {filename}: {texReq.error}");
+                        continue;
+                    }
+
+                    try
+                    {
+                        var tex = LoadTexture(texReq.downloadHandler.data);
+                        tex.name = Path.GetFileNameWithoutExtension(filename);
+                        _sourceTextures.Add(tex);
+                        Debug.Log($"[SparkDemo] Loaded {tex.name} ({tex.width}x{tex.height})");
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogWarning($"[SparkDemo] Failed to decode {filename}: {e.Message}");
+                    }
+                }
             }
         }
     }

@@ -38,7 +38,7 @@
 #else
     #define SPK_ENABLE_FP16 0
     #define SPK_ENABLE_FP16_INPUT 0
-    #endif
+#endif
 
 #pragma use_dxc metal vulkan
 #pragma exclude_renderers gles
