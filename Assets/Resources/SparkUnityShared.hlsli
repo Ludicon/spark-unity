@@ -21,7 +21,11 @@
 
 #if SHADER_API_GLES3 || SHADER_API_VULKAN
     #define SPK_PREFER_ALU_TABLES 1
-    #define SPK_ALLOW_INLINE_CONSTANTS 1 // FIXME: Ideally we should set the table values explicitly.
+    #if defined(UNITY_ANDROID)
+        #define SPK_ALLOW_INLINE_CONSTANTS 0
+    #else
+        #define SPK_ALLOW_INLINE_CONSTANTS 1
+    #endif
 #elif SHADER_API_METAL
     #define SPK_PREFER_ALU_TABLES 0
     #define SPK_ALLOW_INLINE_CONSTANTS 1
