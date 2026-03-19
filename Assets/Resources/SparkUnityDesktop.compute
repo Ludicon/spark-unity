@@ -43,35 +43,6 @@
 #pragma use_dxc metal vulkan
 #pragma exclude_renderers gles
 
-#if SHADER_API_METAL
-    // Avoid fastmath optimizations. This only works in metal. What happens on other platforms?
-    #pragma disable_fastmath
-#endif
-
-#if UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
-    //#pragma dxc_option -enable-16bit-types
-#endif
-
-#if SHADER_API_GLES3 || SHADER_API_D3D11
-    // In GLES target mediump/min16 types.
-    #define SPK_HLSL_EXPLICIT_FP16 0
-    #define SPK_HLSL_EXPLICIT_INT16 0
-#else
-    // Otherwise use explicit 16 bit types.
-    #define SPK_HLSL_EXPLICIT_FP16 0
-    #define SPK_HLSL_EXPLICIT_INT16 0
-#endif
-
-#if SHADER_API_GLES3 || SHADER_API_VULKAN
-    #define SPK_PREFER_ALU_TABLES 1
-    #define SPK_ALLOW_INLINE_CONSTANTS 0
-#elif SHADER_API_METAL
-    #define SPK_PREFER_ALU_TABLES 0
-    #define SPK_ALLOW_INLINE_CONSTANTS 1
-#elif SHADER_API_D3D11 || SHADER_API_D3D12
-    #define SPK_PREFER_ALU_TABLES 1
-    #define SPK_ALLOW_INLINE_CONSTANTS 1
-#endif
 
 // Default to perceptual metric.
 #define SPK_BCN_PERCEPTUAL 1

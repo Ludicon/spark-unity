@@ -26,36 +26,6 @@
 #pragma kernel spark_encode_etc2_rgba_q2 FORMAT_ETC2_RGBA SPK_QUALITY=2
 
 
-#define SPK_ENABLE_FP16 0
-#define SPK_ENABLE_FP16_INPUT 0
-
-#pragma use_dxc metal vulkan
-//#pragma dxc_option -enable-16bit-types
-
-#if UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
-#endif
-
-// #if SHADER_API_GLES3
-//     // In GLES target mediump/min16 types.
-//     #define SPK_HLSL_EXPLICIT_FP16 0
-//     #define SPK_HLSL_EXPLICIT_INT16 0
-// #else
-//     // Otherwise use explicit 16 bit types.
-//     #define SPK_HLSL_EXPLICIT_FP16 1
-//     #define SPK_HLSL_EXPLICIT_INT16 1
-// #endif
-
-#if SHADER_API_GLES3 || SHADER_API_VULKAN
-    #define SPK_PREFER_ALU_TABLES 1
-    #define SPK_ALLOW_INLINE_CONSTANTS 1 // Ideally we should set the table values explicitly.
-#elif SHADER_API_METAL
-    #define SPK_PREFER_ALU_TABLES 0
-    #define SPK_ALLOW_INLINE_CONSTANTS 1
-#else
-    #define SPK_PREFER_ALU_TABLES 1
-    #define SPK_ALLOW_INLINE_CONSTANTS 1
-#endif
-
 // Default to perceptual metric.
 #define SPK_ASTC_PERCEPTUAL 1
 
