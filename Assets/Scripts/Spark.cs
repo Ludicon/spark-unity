@@ -64,6 +64,13 @@ public enum SparkQuality
 ///   // Or spread across frames via coroutine:
 ///   StartCoroutine(Spark.PreloadAsync(SparkQuality.Medium, SparkFormat.RGB, SparkFormat.RGBA));
 ///
+///   // Record into a CommandBuffer (for async compute or batching)
+///   var cmd = new CommandBuffer();
+///   var format = Spark.ResolveFormat(SparkFormat.RGB);
+///   var dst = new Texture2D(w, h, Spark.GetCompressedFormat(format, false), TextureCreationFlags.None);
+///   Spark.EncodeTexture(cmd, source, dst, format);
+///   Graphics.ExecuteCommandBuffer(cmd);
+///
 ///   // Release cached render targets when done
 ///   Spark.ReleaseCache();
 /// </summary>
@@ -76,7 +83,6 @@ public static class Spark
     /// <summary>
     /// Encode a texture into a GPU-compressed format.
     /// The returned Texture2D uses the corresponding compressed GraphicsFormat.
-    /// Caller is responsible for destroying the returned texture when no longer needed.
     ///
     /// Generic formats (R, RG, RGB, RGBA) are resolved to the best concrete format
     /// supported on the current GPU.
@@ -87,11 +93,44 @@ public static class Spark
     /// <param name="srgb">If true, the output texture uses an sRGB format.</param>
     public static Texture2D EncodeTexture(Texture source, SparkFormat format, SparkQuality quality = SparkQuality.Medium, bool srgb = false)
     {
+        format = ResolveFormat(format);
+
+        GraphicsFormat compressedFmt = GetCompressedFormat(format, srgb);
+        var result = new Texture2D(source.width, source.height, compressedFmt,
+            TextureCreationFlags.DontInitializePixels | TextureCreationFlags.DontUploadUponCreate);
+
+        var cmd = GetCommandBuffer();
+        cmd.Clear();
+        cmd.BeginSample(GpuSampleName);
+        EncodeTexture(cmd, source, result, format, quality);
+        cmd.EndSample(GpuSampleName);
+        Graphics.ExecuteCommandBuffer(cmd);
+
+        return result;
+    }
+
+    /// <summary>
+    /// Record texture encoding commands into a CommandBuffer.
+    /// The caller is responsible for executing the command buffer (e.g. via
+    /// Graphics.ExecuteCommandBuffer or on an async compute queue).
+    ///
+    /// The destination texture must have the correct compressed GraphicsFormat
+    /// and match the source dimensions. Use GetCompressedFormat to determine
+    /// the right format.
+    /// </summary>
+    /// <param name="cmd">CommandBuffer to record into.</param>
+    /// <param name="source">Source texture (any GPU-readable format, e.g. RGBA32).</param>
+    /// <param name="destination">Destination texture with a compressed GraphicsFormat.</param>
+    /// <param name="format">Target compressed format (concrete or generic).</param>
+    /// <param name="quality">Compression quality (Low/Medium/High).</param>
+    public static void EncodeTexture(CommandBuffer cmd, Texture source, Texture destination, SparkFormat format, SparkQuality quality = SparkQuality.Medium)
+    {
         if (source == null)
             throw new ArgumentNullException(nameof(source));
-
-        // Resolve generic formats to concrete.
-        format = ResolveFormat(format);
+        if (cmd == null)
+            throw new ArgumentNullException(nameof(cmd));
+        if (destination == null)
+            throw new ArgumentNullException(nameof(destination));
 
         int width  = source.width;
         int height = source.height;
@@ -111,6 +150,8 @@ public static class Spark
         int blockW = width  / 4;
         int blockH = height / 4;
 
+        format = ResolveFormat(format);
+
         // Get or reuse cached render texture sized in blocks.
         GraphicsFormat outputFmt = IsSmallBlockFormat(format)
             ? GraphicsFormat.R32G32_UInt
@@ -118,28 +159,14 @@ public static class Spark
 
         var rt = GetOrCreateRT(blockW, blockH, outputFmt);
 
-        // Create the compressed texture and copy entirely on the GPU.
-        // The uint RT pixels map 1:1 to compressed blocks (same byte layout).
-        GraphicsFormat compressedFmt = GetCompressedFormat(format, srgb);
-        var result = new Texture2D(width, height, compressedFmt, TextureCreationFlags.None);
-
-
         int groupsX = (blockW + 15) / 16;
         int groupsY = (blockH + 15) / 16;
 
-        // Dispatch via CommandBuffer so we get GPU profiler samples.
-        var cmd = GetCommandBuffer();
-        cmd.Clear();
-        cmd.BeginSample(GpuSampleName);
         cmd.SetComputeTextureParam(shader, kernel, "_Src", source);
         cmd.SetComputeTextureParam(shader, kernel, "_Dst", rt);
         cmd.DispatchCompute(shader, kernel, groupsX, groupsY, 1);
-        cmd.CopyTexture(rt, 0, 0, result, 0, 0);
-        cmd.EndSample(GpuSampleName);
-        Graphics.ExecuteCommandBuffer(cmd);
-
-        //Graphics.CopyTexture(rt, 0, 0, result, 0, 0);
-        return result;
+        // The uint RT pixels map 1:1 to compressed blocks (same byte layout).
+        cmd.CopyTexture(rt, 0, 0, destination, 0, 0);
     }
 
     /// <summary>
@@ -304,7 +331,11 @@ public static class Spark
         }
     }
 
-    static GraphicsFormat GetCompressedFormat(SparkFormat format, bool srgb)
+    /// <summary>
+    /// Returns the GraphicsFormat for a given SparkFormat. Use this to create
+    /// the destination Texture2D for the CommandBuffer overload of EncodeTexture.
+    /// </summary>
+    public static GraphicsFormat GetCompressedFormat(SparkFormat format, bool srgb)
     {
         switch (format)
         {
