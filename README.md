@@ -9,13 +9,11 @@ GPU texture compression for Unity using [Spark](https://github.com/ludicon/spark
 | Format | Type | BPP |
 |--------|------|-----|
 | BC1_RGB | Desktop | 4 |
-| BC3_RGBA | Desktop | 8 |
 | BC4_R | Desktop | 4 |
 | BC5_RG | Desktop | 8 |
 | BC7_RGB, BC7_RGBA | Desktop | 8 |
 | ASTC_4x4_RGB, ASTC_4x4_RGBA | Mobile | 8 |
 | ETC2_RGB | Mobile | 4 |
-| ETC2_RGBA | Mobile | 8 |
 | EAC_R | Mobile | 4 |
 | EAC_RG | Mobile | 8 |
 

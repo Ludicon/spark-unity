@@ -15,7 +15,7 @@ using Debug = UnityEngine.Debug;
 ///
 /// Usage:
 ///   1. Select a source texture from the list.
-///   2. Pick a compression format and quality level.
+///   2. Pick a compression format level.
 ///   3. Texture is compressed in the GPU whenever settings change.
 ///   4. Compare original vs compressed side-by-side.
 /// </summary>
@@ -24,7 +24,6 @@ public class SparkDemo : MonoBehaviour
     // UI state
     int           _selectedTexture;
     int           _selectedFormat = (int)SparkFormat.RGB;
-    SparkQuality  _quality = SparkQuality.Medium;
     bool          _srgb    = false;
     Vector2       _texScroll;
     bool          _fmtDropdownOpen;
@@ -49,10 +48,8 @@ public class SparkDemo : MonoBehaviour
     {
         StartCoroutine(LoadTexturesFromStreamingAssets());
 
-        // Preload most common formats at all quality levels.
-        Spark.Preload(SparkQuality.Low, SparkFormat.RGB, SparkFormat.RGBA, SparkFormat.RG, SparkFormat.R);
-        Spark.Preload(SparkQuality.Medium, SparkFormat.RGB, SparkFormat.RGBA, SparkFormat.RG, SparkFormat.R);
-        Spark.Preload(SparkQuality.High, SparkFormat.RGB, SparkFormat.RGBA, SparkFormat.RG, SparkFormat.R);
+        // Preload most common formats.
+        Spark.Preload(SparkFormat.RGB, SparkFormat.RGBA, SparkFormat.RG, SparkFormat.R);
     }
 
     void LateUpdate()
@@ -161,17 +158,6 @@ public class SparkDemo : MonoBehaviour
             }
         }
 
-        GUILayout.Space(8);
-
-        // Quality
-        GUILayout.Label("Quality:");
-        var newQuality = (SparkQuality)GUILayout.SelectionGrid((int)_quality, new[] { "Low", "Medium", "High" }, 3);
-        if (newQuality != _quality)
-        {
-            _quality = newQuality;
-            _encodeCountdown = 2;
-        }
-
         //GUILayout.Space(4);
         //_srgb = GUILayout.Toggle(_srgb, "sRGB");
 
@@ -234,11 +220,11 @@ public class SparkDemo : MonoBehaviour
             }
 
             var sw = Stopwatch.StartNew();
-            _encodedTexture = Spark.EncodeTexture(source, format, _quality, _srgb);
+            _encodedTexture = Spark.EncodeTexture(source, format, _srgb);
             sw.Stop();
             _cpuTimeMs = (float)sw.Elapsed.TotalMilliseconds;
 
-            _status = $"Encoded {format} ({_quality}) — CPU {_cpuTimeMs:F1} ms, GPU {Spark.GpuTimeMs:F1} ms";
+            _status = $"Encoded {format} — CPU {_cpuTimeMs:F1} ms, GPU {Spark.GpuTimeMs:F1} ms";
             Debug.Log($"[Spark] {_status}");
         }
         catch (System.Exception e)

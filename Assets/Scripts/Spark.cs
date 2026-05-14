@@ -20,33 +20,19 @@ public enum SparkFormat
 
     // Desktop formats
     BC1_RGB,        // RGB, 4 bpp
-    BC3_RGBA,       // RGBA, 8 bpp
-    //BC3_YCoCg,      // YCoCg (RGB), 8 bpp
-    //BC3_RGBM,       // HDR via RGBM encoding, 8 bpp
     BC4_R,          // Single channel (R), 4 bpp
     BC5_RG,         // Two channels (RG), 8 bpp — ideal for normal maps
     BC7_RGB,        // High-quality RGB, 8 bpp
     BC7_RGBA,       // High-quality RGBA, 8 bpp
 
     // Mobile formats
-    ASTC_4x4_RGB,   // RGB, 8 bpp
-    ASTC_4x4_RGBA,  // RGBA, 8 bpp
-    //ASTC_4x4_RGBM,  // HDR via RGBM encoding, 8 bpp
     ETC2_RGB,       // RGB, 4 bpp
-    ETC2_RGBA,      // RGBA, 8 bpp
     EAC_R,          // Single channel (R), 4 bpp
     EAC_RG,         // Two channels (RG), 8 bpp
+    ASTC_4x4_RGB,   // RGB, 8 bpp
+    ASTC_4x4_RGBA,  // RGBA, 8 bpp
 }
 
-/// <summary>
-/// Compression quality level. Higher quality is slower.
-/// </summary>
-public enum SparkQuality
-{
-    Low    = 0,
-    Medium = 1,
-    High   = 2,
-}
 
 /// <summary>
 /// GPU texture compression using Spark codecs.
@@ -55,15 +41,15 @@ public enum SparkQuality
 ///   Texture2D compressed = Spark.EncodeTexture(source, SparkFormat.BC7_RGB);
 ///
 ///   // With options
-///   Texture2D compressed = Spark.EncodeTexture(source, SparkFormat.ASTC_4x4_RGB, SparkQuality.High, srgb: true);
+///   Texture2D compressed = Spark.EncodeTexture(source, SparkFormat.ASTC_4x4_RGB, srgb: true);
 ///
 ///   // Auto-select best format for current GPU
 ///   Texture2D compressed = Spark.EncodeTexture(source, SparkFormat.RGB);
 ///
 ///   // Preload shaders to avoid first-encode hitch
-///   Spark.Preload(SparkQuality.Medium, SparkFormat.RGB, SparkFormat.RGBA);
+///   Spark.Preload(SparkFormat.RGB, SparkFormat.RGBA);
 ///   // Or spread across frames via coroutine:
-///   StartCoroutine(Spark.PreloadAsync(SparkQuality.Medium, SparkFormat.RGB, SparkFormat.RGBA));
+///   StartCoroutine(Spark.PreloadAsync(SparkFormat.RGB, SparkFormat.RGBA));
 ///
 ///   // Record into a CommandBuffer (for async compute or batching)
 ///   var cmd = new CommandBuffer();
@@ -90,9 +76,8 @@ public static class Spark
     /// </summary>
     /// <param name="source">Source texture (any GPU-readable format, e.g. RGBA32).</param>
     /// <param name="format">Target compressed format (concrete or generic).</param>
-    /// <param name="quality">Compression quality (Low/Medium/High).</param>
     /// <param name="srgb">If true, the output texture uses an sRGB format.</param>
-    public static Texture2D EncodeTexture(Texture source, SparkFormat format, SparkQuality quality = SparkQuality.Medium, bool srgb = false)
+    public static Texture2D EncodeTexture(Texture source, SparkFormat format, bool srgb = false)
     {
         format = ResolveFormat(format);
 
@@ -103,7 +88,7 @@ public static class Spark
         var cmd = GetCommandBuffer();
         cmd.Clear();
         cmd.BeginSample(GpuSampleName);
-        EncodeTexture(cmd, source, result, format, quality);
+        EncodeTexture(cmd, source, result, format);
         cmd.EndSample(GpuSampleName);
         Graphics.ExecuteCommandBuffer(cmd);
 
@@ -123,8 +108,7 @@ public static class Spark
     /// <param name="source">Source texture (any GPU-readable format, e.g. RGBA32).</param>
     /// <param name="destination">Destination texture with a compressed GraphicsFormat.</param>
     /// <param name="format">Target compressed format (concrete or generic).</param>
-    /// <param name="quality">Compression quality (Low/Medium/High).</param>
-    public static void EncodeTexture(CommandBuffer cmd, Texture source, Texture destination, SparkFormat format, SparkQuality quality = SparkQuality.Medium)
+    public static void EncodeTexture(CommandBuffer cmd, Texture source, Texture destination, SparkFormat format)
     {
         if (source == null)
             throw new ArgumentNullException(nameof(source));
@@ -142,12 +126,12 @@ public static class Spark
             throw new ArgumentException($"Texture dimensions ({width}x{height}) must be multiples of 4.");
 
         // Resolve shader and kernel.
-        ComputeShader shader = IsDesktopFormat(format) ? DesktopShader : MobileShader;
+        ComputeShader shader = Shader;
         if (shader == null)
             throw new InvalidOperationException(
-                $"Could not load compute shader. Make sure SparkUnityDesktop/SparkUnityMobile are in a Resources folder.");
+                $"Could not load compute shader. Make sure SparkUnity is in a Resources folder.");
 
-        string kernelName = GetKernelName(format, quality);
+        string kernelName = GetKernelName(format);
         int kernel = shader.FindKernel(kernelName);
 
         int blockW = width  / 4;
@@ -253,23 +237,23 @@ public static class Spark
     }
 
     /// <summary>
-    /// Preload (warm up) compute shader kernels for the given quality and formats.
+    /// Preload (warm up) compute shader kernels for the given formats.
     /// Forces the GPU driver to compile each kernel by issuing a tiny 4x4 dummy dispatch.
     /// Generic formats are resolved before warmup.
     /// </summary>
-    public static void Preload(SparkQuality quality, params SparkFormat[] formats)
+    public static void Preload(params SparkFormat[] formats)
     {
-        foreach (var entry in CollectKernels(quality, formats))
+        foreach (var entry in CollectKernels(formats))
             WarmupKernel(entry.shader, entry.kernel, entry.format);
     }
 
     /// <summary>
     /// Coroutine that preloads compute shader kernels spread across frames (one kernel per frame).
-    /// Use with StartCoroutine(Spark.PreloadAsync(SparkQuality.Medium, SparkFormat.RGB, SparkFormat.RGBA)).
+    /// Use with StartCoroutine(Spark.PreloadAsync(SparkFormat.RGB, SparkFormat.RGBA)).
     /// </summary>
-    public static IEnumerator PreloadAsync(SparkQuality quality, params SparkFormat[] formats)
+    public static IEnumerator PreloadAsync(params SparkFormat[] formats)
     {
-        foreach (var entry in CollectKernels(quality, formats))
+        foreach (var entry in CollectKernels(formats))
         {
             WarmupKernel(entry.shader, entry.kernel, entry.format);
             yield return null;
@@ -281,30 +265,10 @@ public static class Spark
     //  Compute Shaders
     // ───────────────────────────────────────────────
 
-    static ComputeShader s_desktopShader;
-    static ComputeShader s_mobileShader;
+    static ComputeShader s_Shader;
 
-    static ComputeShader DesktopShader =>
-        s_desktopShader != null ? s_desktopShader : (s_desktopShader = Resources.Load<ComputeShader>("SparkUnityDesktop"));
-
-    static ComputeShader MobileShader =>
-        s_mobileShader != null ? s_mobileShader : (s_mobileShader = Resources.Load<ComputeShader>("SparkUnityMobile"));
-
-    static bool IsDesktopFormat(SparkFormat format)
-    {
-        switch (format)
-        {
-            case SparkFormat.BC1_RGB:
-            case SparkFormat.BC3_RGBA:
-            case SparkFormat.BC4_R:
-            case SparkFormat.BC5_RG:
-            case SparkFormat.BC7_RGB:
-            case SparkFormat.BC7_RGBA:
-                return true;
-            default:
-                return false;
-        }
-    }
+    static ComputeShader Shader =>
+        s_Shader != null ? s_Shader : (s_Shader = Resources.Load<ComputeShader>("SparkUnity"));
 
     // Formats whose encoded block fits in uint2 (8 bytes). Everything else uses uint4 (16 bytes).
     static bool IsSmallBlockFormat(SparkFormat format)
@@ -322,26 +286,20 @@ public static class Spark
             : GraphicsFormat.R32G32B32A32_UInt;
     }
 
-    static string GetKernelName(SparkFormat format, SparkQuality quality)
+    static string GetKernelName(SparkFormat format)
     {
-        int q = (int)quality;
-
         switch (format)
         {
-            case SparkFormat.BC1_RGB:        return $"spark_encode_bc1_rgb_q{q}";
-            case SparkFormat.BC3_RGBA:       return $"spark_encode_bc3_rgba_q{q}";
-            //case SparkFormat.BC3_RGBM:       return $"spark_encode_bc3_rgbm_q{q}";
-            case SparkFormat.BC4_R:          return $"spark_encode_bc4_r_q{(q < 2 ? 1 : 2)}";
-            case SparkFormat.BC5_RG:         return $"spark_encode_bc5_rg_q{(q < 2 ? 1 : 2)}";
-            case SparkFormat.BC7_RGB:        return $"spark_encode_bc7_rgb_q{q}";
-            case SparkFormat.BC7_RGBA:       return $"spark_encode_bc7_rgba_q{q}";
-            case SparkFormat.ASTC_4x4_RGB:   return $"spark_encode_astc_4x4_rgb_q{q}";
-            case SparkFormat.ASTC_4x4_RGBA:  return $"spark_encode_astc_4x4_rgba_q{q}";
-            //case SparkFormat.ASTC_4x4_RGBM:  return $"spark_encode_astc_4x4_rgbm_q{q}";
-            case SparkFormat.ETC2_RGB:       return $"spark_encode_etc2_rgb_q{q}";
-            case SparkFormat.ETC2_RGBA:      return $"spark_encode_etc2_rgba_q{q}";
-            case SparkFormat.EAC_R:          return $"spark_encode_eac_r_q{q}";
-            case SparkFormat.EAC_RG:         return $"spark_encode_eac_rg_q{q}";
+            case SparkFormat.BC1_RGB:        return $"kernel_spark_encode_bc1_rgb_q2";
+            case SparkFormat.BC4_R:          return $"kernel_spark_encode_bc4_r_q2";
+            case SparkFormat.BC5_RG:         return $"kernel_spark_encode_bc5_rg_q2";
+            case SparkFormat.BC7_RGB:        return $"kernel_spark_encode_bc7_rgb_q2";
+            case SparkFormat.BC7_RGBA:       return $"kernel_spark_encode_bc7_rgba_q2";
+            case SparkFormat.ASTC_4x4_RGB:   return $"kernel_spark_encode_astc_4x4_rgb_q2";
+            case SparkFormat.ASTC_4x4_RGBA:  return $"kernel_spark_encode_astc_4x4_rgba_q2";
+            case SparkFormat.ETC2_RGB:       return $"kernel_spark_encode_etc2_rgb_q1";
+            case SparkFormat.EAC_R:          return $"kernel_spark_encode_eac_r_q0";
+            case SparkFormat.EAC_RG:         return $"kernel_spark_encode_eac_rg_q0";
             default: throw new ArgumentException($"Unknown format: {format}");
         }
     }
@@ -356,10 +314,6 @@ public static class Spark
         {
             case SparkFormat.BC1_RGB:
                 return srgb ? GraphicsFormat.RGBA_DXT1_SRGB  : GraphicsFormat.RGBA_DXT1_UNorm;
-            case SparkFormat.BC3_RGBA:
-                return srgb ? GraphicsFormat.RGBA_DXT5_SRGB  : GraphicsFormat.RGBA_DXT5_UNorm;
-            // case SparkFormat.BC3_RGBM:
-            //     return GraphicsFormat.RGBA_DXT5_UNorm;
             case SparkFormat.BC4_R:
                 return GraphicsFormat.R_BC4_UNorm;
             case SparkFormat.BC5_RG:
@@ -370,12 +324,8 @@ public static class Spark
             case SparkFormat.ASTC_4x4_RGB:
             case SparkFormat.ASTC_4x4_RGBA:
                 return srgb ? GraphicsFormat.RGBA_ASTC4X4_SRGB : GraphicsFormat.RGBA_ASTC4X4_UNorm;
-            // case SparkFormat.BC3_RGBM:
-            //     return GraphicsFormat.RGBA_ASTC4X4_UNorm;
             case SparkFormat.ETC2_RGB:
                 return srgb ? GraphicsFormat.RGB_ETC2_SRGB   : GraphicsFormat.RGB_ETC2_UNorm;
-            case SparkFormat.ETC2_RGBA:
-                return srgb ? GraphicsFormat.RGBA_ETC2_SRGB : GraphicsFormat.RGBA_ETC2_UNorm;
             case SparkFormat.EAC_R:
                 return GraphicsFormat.R_EAC_UNorm;
             case SparkFormat.EAC_RG:
@@ -397,7 +347,7 @@ public static class Spark
         public int kernel;
     }
 
-    static List<KernelEntry> CollectKernels(SparkQuality quality, SparkFormat[] formats)
+    static List<KernelEntry> CollectKernels(SparkFormat[] formats)
     {
         var kernels = new List<KernelEntry>();
         var seen = new HashSet<string>();
@@ -405,10 +355,10 @@ public static class Spark
         foreach (var raw in formats)
         {
             var format = ResolveFormat(raw);
-            ComputeShader shader = IsDesktopFormat(format) ? DesktopShader : MobileShader;
+            ComputeShader shader = Shader;
             if (shader == null) continue;
 
-            string kernelName = GetKernelName(format, quality);
+            string kernelName = GetKernelName(format);
             if (!seen.Add(kernelName)) continue;
 
             int kid = shader.FindKernel(kernelName);
@@ -614,7 +564,7 @@ public static class Spark
         s_resolvedR    = PickFirstSupported(SparkFormat.BC4_R,    SparkFormat.EAC_R);
         s_resolvedRG   = PickFirstSupported(SparkFormat.BC5_RG,   SparkFormat.EAC_RG);
         s_resolvedRGB  = PickFirstSupported(SparkFormat.BC7_RGB,  SparkFormat.ASTC_4x4_RGB, SparkFormat.BC1_RGB, SparkFormat.ETC2_RGB);
-        s_resolvedRGBA = PickFirstSupported(SparkFormat.BC7_RGBA, SparkFormat.ASTC_4x4_RGBA, SparkFormat.BC3_RGBA, SparkFormat.ETC2_RGBA);
+        s_resolvedRGBA = PickFirstSupported(SparkFormat.BC7_RGBA, SparkFormat.ASTC_4x4_RGBA);
         s_formatsResolved = true;
     }
 

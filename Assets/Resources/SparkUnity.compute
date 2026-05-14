@@ -1,0 +1,624 @@
+
+#pragma editor_sync_compilation
+
+#if SPARK_FULL_VERSION
+
+    #pragma kernel kernel_spark_encode_bc1_rgb_q0 FORMAT_BC1_RGB
+    #pragma kernel kernel_spark_encode_bc1_rgb_q1 FORMAT_BC1_RGB
+    #pragma kernel kernel_spark_encode_bc1_rgb_q2 FORMAT_BC1_RGB
+
+    #pragma kernel kernel_spark_encode_bc3_rgba_q0 FORMAT_BC3_RGBA
+    #pragma kernel kernel_spark_encode_bc3_rgba_q1 FORMAT_BC3_RGBA
+    #pragma kernel kernel_spark_encode_bc3_rgba_q2 FORMAT_BC3_RGBA
+
+    #pragma kernel kernel_spark_encode_bc4_r_q1 FORMAT_BC4_R
+    #pragma kernel kernel_spark_encode_bc4_r_q2 FORMAT_BC4_R
+
+    #pragma kernel kernel_spark_encode_bc5_rg_q1 FORMAT_BC5_RG
+    #pragma kernel kernel_spark_encode_bc5_rg_q2 FORMAT_BC5_RG
+
+    #pragma kernel kernel_spark_encode_bc7_rgb_q0 FORMAT_BC7_RGB
+    #pragma kernel kernel_spark_encode_bc7_rgb_q1 FORMAT_BC7_RGB
+    #pragma kernel kernel_spark_encode_bc7_rgb_q2 FORMAT_BC7_RGB
+
+    #pragma kernel kernel_spark_encode_bc7_rgba_q0 FORMAT_BC7_RGBA
+    #pragma kernel kernel_spark_encode_bc7_rgba_q1 FORMAT_BC7_RGBA
+    #pragma kernel kernel_spark_encode_bc7_rgba_q2 FORMAT_BC7_RGBA
+
+    #pragma kernel kernel_spark_encode_etc2_rgb_q0 FORMAT_ETC2_RGB
+    #pragma kernel kernel_spark_encode_etc2_rgb_q1 FORMAT_ETC2_RGB
+    #pragma kernel kernel_spark_encode_etc2_rgb_q2 FORMAT_ETC2_RGB
+
+    #pragma kernel kernel_spark_encode_etc2_rgba_q0 FORMAT_ETC2_RGBA
+    #pragma kernel kernel_spark_encode_etc2_rgba_q1 FORMAT_ETC2_RGBA
+    #pragma kernel kernel_spark_encode_etc2_rgba_q2 FORMAT_ETC2_RGBA
+
+    #pragma kernel kernel_spark_encode_eac_r_q0 FORMAT_EAC_R
+    #pragma kernel kernel_spark_encode_eac_r_q1 FORMAT_EAC_R
+    #pragma kernel kernel_spark_encode_eac_r_q2 FORMAT_EAC_R
+
+    #pragma kernel kernel_spark_encode_eac_rg_q0 FORMAT_EAC_RG
+    #pragma kernel kernel_spark_encode_eac_rg_q1 FORMAT_EAC_RG
+    #pragma kernel kernel_spark_encode_eac_rg_q2 FORMAT_EAC_RG
+
+    #pragma kernel kernel_spark_encode_astc_4x4_rgb_q0 FORMAT_ASTC_RGB
+    #pragma kernel kernel_spark_encode_astc_4x4_rgb_q1 FORMAT_ASTC_RGB
+    #pragma kernel kernel_spark_encode_astc_4x4_rgb_q2 FORMAT_ASTC_RGB
+    #pragma kernel kernel_spark_encode_astc_4x4_rgb_q3 FORMAT_ASTC_RGB
+
+    #pragma kernel kernel_spark_encode_astc_4x4_rgba_q0 FORMAT_ASTC_RGBA
+    #pragma kernel kernel_spark_encode_astc_4x4_rgba_q1 FORMAT_ASTC_RGBA
+    #pragma kernel kernel_spark_encode_astc_4x4_rgba_q2 FORMAT_ASTC_RGBA
+    #pragma kernel kernel_spark_encode_astc_4x4_rgba_q3 FORMAT_ASTC_RGBA
+
+#else
+
+    #pragma kernel kernel_spark_encode_bc1_rgb_q2 FORMAT_BC1_RGB
+    #pragma kernel kernel_spark_encode_bc4_r_q2 FORMAT_BC4_R
+    #pragma kernel kernel_spark_encode_bc5_rg_q2 FORMAT_BC5_RG
+    #pragma kernel kernel_spark_encode_bc7_rgb_q2 FORMAT_BC7_RGB
+    #pragma kernel kernel_spark_encode_bc7_rgba_q2 FORMAT_BC7_RGBA
+
+    #pragma kernel kernel_spark_encode_etc2_rgb_q1 FORMAT_ETC2_RGB
+    #pragma kernel kernel_spark_encode_eac_r_q0 FORMAT_EAC_R
+    #pragma kernel kernel_spark_encode_eac_rg_q0 FORMAT_EAC_RG
+    #pragma kernel kernel_spark_encode_astc_4x4_rgb_q2 FORMAT_ASTC_RGB
+    #pragma kernel kernel_spark_encode_astc_4x4_rgba_q2 FORMAT_ASTC_RGBA
+
+#endif
+
+
+// Gate SPK_ENABLE_F16 directly on SHADER_API_* so the pragma scanner sees the same condition.
+#if SHADER_API_GLES3 || SHADER_API_D3D11
+    #define SPK_ENABLE_F16 0
+    #define SPK_ENABLE_F16x2 0
+#elif SHADER_API_METAL
+    #define SPK_ENABLE_F16 1
+    #define SPK_ENABLE_F16x2 1
+#elif (SHADER_API_VULKAN && SHADER_API_MOBILE) || SHADER_API_METAL
+    // Vulkan on Mobile always supports fp16 (at least on the devices we care about).
+    // Metal always supports fp16.
+    #define SPK_ENABLE_F16 1
+    #define SPK_ENABLE_F16x2 1
+#elif SHADER_API_SWITCH || SHADER_API_SWITCH2
+    // Both Switch targets support fp16.
+    #define SPK_ENABLE_F16 1
+    #define SPK_ENABLE_F16x2 1
+#elif SHADER_API_PS5
+    // PS5 always supports fp16.
+    #define SPK_ENABLE_F16 1
+    #define SPK_ENABLE_F16x2 1
+#elif SHADER_API_PS4
+    // PS4 Pro support fp16, but PS4 does not. Use multicompile to support both.
+    #pragma multi_compile _ UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
+    #define SPK_ENABLE_F16 REAL_IS_HALF
+    #define SPK_ENABLE_F16x2 REAL_IS_HALF
+#elif SHADER_API_XBOXONE || SHADER_API_GAMECORE_XBOXONE
+    #define SPK_ENABLE_F16 0
+    #define SPK_ENABLE_F16x2 0
+#elif SHADER_API_GAMECORE_SCARLETT
+    // Xbox Series S / Series X support fp16.
+    #define SPK_ENABLE_F16 1
+    #define SPK_ENABLE_F16x2 1
+#elif SHADER_API_WEBGPU
+    // WebGPU supports fp16, but does not support int16 - This would require a different shader variant that we currently don't provide.
+    #define SPK_ENABLE_F16 0
+    #define SPK_ENABLE_F16x2 0
+#else
+    // On Desktop PC, compile both variants.
+    #pragma multi_compile _ UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
+    #define SPK_ENABLE_F16 REAL_IS_HALF
+    #define SPK_ENABLE_F16x2 REAL_IS_HALF
+#endif
+
+//#if SPK_ENABLE_F16 && !SHADER_API_GLES3
+    #define SPK_BLOCK_DIM_X 16
+    #define SPK_BLOCK_DIM_Y 16
+// #else
+//     #define SPK_BLOCK_DIM_X 8
+//     #define SPK_BLOCK_DIM_Y 8
+// #endif
+
+// @@ Maybe we could use Unity's real type directly?
+#if SPK_ENABLE_F16 || SPK_ENABLE_F16x2
+    #define SPK_FLOAT  half
+    #define SPK_FLOAT2 half2
+    #define SPK_FLOAT3 half3
+    #define SPK_FLOAT4 half4
+#else
+    #define SPK_FLOAT  float
+    #define SPK_FLOAT2 float2
+    #define SPK_FLOAT3 float3
+    #define SPK_FLOAT4 float4
+#endif
+
+// DXC is required for 16-bit types on Vulkan/Metal. Unity ignores use_dxc on renderers that don't support DXC (D3D11, GLES3),
+#pragma use_dxc
+
+// Keep these gates keyed on SHADER_API_* directly (not on SPK_ENABLE_F16),
+// because Unity's pragma scan does not evaluate user-defined macros.
+// Native 16-bit types require SM 6.2 + the Native16Bit feature requirement.
+//#if (SHADER_API_VULKAN && SHADER_API_MOBILE) || SHADER_API_METAL || (defined(UNITY_DEVICE_SUPPORTS_NATIVE_16BIT_OPERATIONS) && UNITY_DEVICE_SUPPORTS_NATIVE_16BIT_OPERATIONS)
+    #pragma target 6.2
+    #pragma require Native16Bit
+//#endif
+
+#if SHADER_API_METAL
+    #pragma disable_fastmath
+#endif
+
+
+#if defined(FORMAT_BC1_RGB) || defined(FORMAT_BC3_RGBA) || defined(FORMAT_BC4_R) || \
+    defined(FORMAT_BC5_RG) || defined(FORMAT_BC7_RGB) || defined(FORMAT_BC7_RGBA)
+
+    #if SPK_ENABLE_F16x2
+        #include "shaders/libspark_bcn_f16x2-unity.min.hlsl"
+    #elif SPK_ENABLE_F16
+        #include "shaders/libspark_bcn_f16-unity.min.hlsl"
+    #else
+        #include "shaders/libspark_bcn_f32-unity.min.hlsl"
+    #endif
+
+#elif defined(FORMAT_ASTC_RGB) || defined(FORMAT_ASTC_RGBA)
+    #if SPK_ENABLE_F16x2
+        #include "shaders/libspark_astc_f16x2-unity.min.hlsl"
+    #elif SPK_ENABLE_F16
+        #include "shaders/libspark_astc_f16-unity.min.hlsl"
+    #else
+        #include "shaders/libspark_astc_f32-unity.min.hlsl"
+    #endif
+#else
+    #if SPK_ENABLE_F16x2
+        #include "shaders/libspark_etc_f16x2-unity.min.hlsl"
+    #elif SPK_ENABLE_F16
+        #include "shaders/libspark_etc_f16-unity.min.hlsl"
+    #else
+        #include "shaders/libspark_etc_f32-unity.min.hlsl"
+    #endif
+#endif
+
+
+///////////////////////////////////
+// Spark Kernels
+
+#define JOIN2(a, b) a##b
+#define KERNEL(kernel_name) JOIN2(kernel_, kernel_name)
+
+#if defined(FORMAT_BC1_RGB) || defined(FORMAT_BC4_R) || defined(FORMAT_ETC2_RGB) || defined(FORMAT_EAC_R)
+    #if SHADER_API_GLES3
+        // GLES does not support the rg32ui image format qualifier, so we use rgba16ui instead.
+        #define DST_FORMAT min16uint4
+        #define pack(v) min16uint4((v).x & 0xFFFF, (v).x >> 16, (v).y & 0xFFFF, (v).y >> 16)
+    #else
+        #define DST_FORMAT uint2
+        #define pack(v) (v)
+    #endif
+#else
+    #define DST_FORMAT uint4
+    #define pack(v) (v)
+#endif
+
+
+#if SHADER_API_GLES3 || SHADER_API_VULKAN
+    #define GATHER(Color, samp, uv, offset_x, offset_y) \
+        JOIN2(Gather,Color)(samp, uv + float2(offset_x, offset_y) * size_rcp)
+#else
+    #define GATHER(Color, samp, uv, offset_x, offset_y) \
+        JOIN2(Gather,Color)(samp, uv, int2(offset_x, offset_y))
+#endif
+
+
+#if SPK_ENABLE_F16x2
+    #define SPARK_KERNEL_R(kernel_name) \
+        [numthreads(SPK_BLOCK_DIM_X, SPK_BLOCK_DIM_Y, 1)] \
+        void KERNEL(kernel_name)(uint2 tid : SV_DispatchThreadID) { \
+            uint2 dim; _Src.GetDimensions(dim.x, dim.y); \
+            uint2 block_dim = (dim + 3u) / 4u; \
+            [branch] if (any(tid >= block_dim)) return; \
+            half2 input_r[8]; \
+            LoadTexelBlockR(_Src, sampler_Src, dim, tid, input_r); \
+            _Dst[tid] = pack(kernel_name(input_r)); \
+        }
+
+    #define SPARK_KERNEL_RG2(kernel_name, function_name) \
+        [numthreads(SPK_BLOCK_DIM_X, SPK_BLOCK_DIM_Y, 1)] \
+        void KERNEL(kernel_name)(uint2 tid : SV_DispatchThreadID) { \
+            uint2 dim; _Src.GetDimensions(dim.x, dim.y); \
+            uint2 block_dim = (dim + 3u) / 4u; \
+            [branch] if (any(tid >= block_dim)) return; \
+            half2 input_r[8]; \
+            uint4 block; \
+            do { \
+                LoadTexelBlockR(_Src, sampler_Src, dim, tid, input_r); \
+                block.xy = function_name(input_r); \
+            } while (block_dim.x == 0); \
+            do { \
+                LoadTexelBlockG(_Src, sampler_Src, dim, tid, input_r); \
+                block.zw = function_name(input_r); \
+            } while (block_dim.x == 0); \
+            _Dst[tid] = block; \
+        }
+
+    #define SPARK_KERNEL_RGB(kernel_name) \
+        [numthreads(SPK_BLOCK_DIM_X, SPK_BLOCK_DIM_Y, 1)] \
+        void KERNEL(kernel_name)(uint2 tid : SV_DispatchThreadID) { \
+            uint2 dim; _Src.GetDimensions(dim.x, dim.y); \
+            uint2 block_dim = (dim + 3u) / 4u; \
+            [branch] if (any(tid >= block_dim)) return; \
+            half2 input_rgb[24]; \
+            LoadTexelBlockRGB(_Src, sampler_Src, dim, tid, input_rgb); \
+            _Dst[tid] = pack(kernel_name(input_rgb)); \
+        }
+
+    #define SPARK_KERNEL_RGBA(kernel_name) \
+        [numthreads(SPK_BLOCK_DIM_X, SPK_BLOCK_DIM_Y, 1)] \
+        void KERNEL(kernel_name)(uint2 tid : SV_DispatchThreadID) { \
+            uint2 dim; _Src.GetDimensions(dim.x, dim.y); \
+            uint2 block_dim = (dim + 3u) / 4u; \
+            [branch] if (any(tid >= block_dim)) return; \
+            half2 input_rgba[32]; \
+            LoadTexelBlockRGBA(_Src, sampler_Src, dim, tid, input_rgba); \
+            _Dst[tid] = kernel_name(input_rgba); \
+        }
+#else
+    #define SPARK_KERNEL_R(kernel_name) \
+        [numthreads(SPK_BLOCK_DIM_X, SPK_BLOCK_DIM_Y, 1)] \
+        void KERNEL(kernel_name)(uint2 tid : SV_DispatchThreadID) { \
+            uint2 dim; _Src.GetDimensions(dim.x, dim.y); \
+            uint2 block_dim = (dim + 3u) / 4u; \
+            [branch] if (any(tid >= block_dim)) return; \
+            SPK_FLOAT input_r[16]; \
+            LoadTexelBlockR(_Src, sampler_Src, dim, tid, input_r); \
+            _Dst[tid] = pack(kernel_name(input_r)); \
+        }
+
+    #define SPARK_KERNEL_RG2(kernel_name, function_name) \
+        [numthreads(SPK_BLOCK_DIM_X, SPK_BLOCK_DIM_Y, 1)] \
+        void KERNEL(kernel_name)(uint2 tid : SV_DispatchThreadID) { \
+            uint2 dim; _Src.GetDimensions(dim.x, dim.y); \
+            uint2 block_dim = (dim + 3u) / 4u; \
+            [branch] if (any(tid >= block_dim)) return; \
+            SPK_FLOAT input_r[16]; \
+            uint4 block; \
+            do { \
+                LoadTexelBlockR(_Src, sampler_Src, dim, tid, input_r); \
+                block.xy = function_name(input_r); \
+            } while (block_dim.x == 0); \
+            do { \
+                LoadTexelBlockG(_Src, sampler_Src, dim, tid, input_r); \
+                block.zw = function_name(input_r); \
+            } while (block_dim.x == 0); \
+            _Dst[tid] = block; \
+        }
+
+    #define SPARK_KERNEL_RGB(kernel_name) \
+        [numthreads(SPK_BLOCK_DIM_X, SPK_BLOCK_DIM_Y, 1)] \
+        void KERNEL(kernel_name)(uint2 tid : SV_DispatchThreadID) { \
+            uint2 dim; _Src.GetDimensions(dim.x, dim.y); \
+            uint2 block_dim = (dim + 3u) / 4u; \
+            [branch] if (any(tid >= block_dim)) return; \
+            SPK_FLOAT3 input_rgb[16]; \
+            LoadTexelBlockRGB(_Src, sampler_Src, dim, tid, input_rgb); \
+            _Dst[tid] = pack(kernel_name(input_rgb)); \
+        }
+
+    #define SPARK_KERNEL_RGBA(kernel_name) \
+        [numthreads(SPK_BLOCK_DIM_X, SPK_BLOCK_DIM_Y, 1)] \
+        void KERNEL(kernel_name)(uint2 tid : SV_DispatchThreadID) { \
+            uint2 dim; _Src.GetDimensions(dim.x, dim.y); \
+            uint2 block_dim = (dim + 3u) / 4u; \
+            [branch] if (any(tid >= block_dim)) return; \
+            SPK_FLOAT4 input_rgba[16]; \
+            LoadTexelBlockRGBA(_Src, sampler_Src, dim, tid, input_rgba); \
+            _Dst[tid] = kernel_name(input_rgba); \
+        }
+#endif
+
+#if SPK_ENABLE_F16x2
+    void LoadTexelBlockR(Texture2D tex, SamplerState samp, uint2 dim, uint2 tid, out half2 r[8])
+    {
+        float2 size_rcp = rcp(float2(dim));
+        float2 uv = float2(tid * 4u) * size_rcp + size_rcp;
+
+        half4 r00 = tex.GATHER(Red, samp, uv, 0, 0); r[0] = r00.xy; r[1] = r00.zw;
+        half4 r01 = tex.GATHER(Red, samp, uv, 2, 0); r[2] = r01.xy; r[3] = r01.zw;
+        half4 r10 = tex.GATHER(Red, samp, uv, 0, 2); r[4] = r10.xy; r[5] = r10.zw;
+        half4 r11 = tex.GATHER(Red, samp, uv, 2, 2); r[6] = r11.xy; r[7] = r11.zw;
+    }
+
+    void LoadTexelBlockG(Texture2D tex, SamplerState samp, uint2 dim, uint2 tid, out half2 g[8])
+    {
+        float2 size_rcp = rcp(float2(dim));
+        float2 uv = float2(tid * 4u) * size_rcp + size_rcp;
+
+        half4 g00 = tex.GATHER(Green, samp, uv, 0, 0); g[0] = g00.xy; g[1] = g00.zw;
+        half4 g01 = tex.GATHER(Green, samp, uv, 2, 0); g[2] = g01.xy; g[3] = g01.zw;
+        half4 g10 = tex.GATHER(Green, samp, uv, 0, 2); g[4] = g10.xy; g[5] = g10.zw;
+        half4 g11 = tex.GATHER(Green, samp, uv, 2, 2); g[6] = g11.xy; g[7] = g11.zw;
+    }
+
+    void LoadTexelBlockRGB(Texture2D tex, SamplerState samp, uint2 dim, uint2 tid, out half2 rgb[24])
+    {
+        float2 size_rcp = rcp(float2(dim));
+        float2 uv = float2(tid * 4u) * size_rcp + size_rcp;
+
+        half4 r00 = tex.GATHER(Red, samp, uv, 0, 0); rgb[0] = r00.xy; rgb[1] = r00.zw;
+        half4 r01 = tex.GATHER(Red, samp, uv, 2, 0); rgb[2] = r01.xy; rgb[3] = r01.zw;
+        half4 r10 = tex.GATHER(Red, samp, uv, 0, 2); rgb[4] = r10.xy; rgb[5] = r10.zw;
+        half4 r11 = tex.GATHER(Red, samp, uv, 2, 2); rgb[6] = r11.xy; rgb[7] = r11.zw;
+
+        half4 g00 = tex.GATHER(Green, samp, uv, 0, 0); rgb[8] = g00.xy; rgb[9] = g00.zw;
+        half4 g01 = tex.GATHER(Green, samp, uv, 2, 0); rgb[10] = g01.xy; rgb[11] = g01.zw;
+        half4 g10 = tex.GATHER(Green, samp, uv, 0, 2); rgb[12] = g10.xy; rgb[13] = g10.zw;
+        half4 g11 = tex.GATHER(Green, samp, uv, 2, 2); rgb[14] = g11.xy; rgb[15] = g11.zw;
+
+        half4 b00 = tex.GATHER(Blue, samp, uv, 0, 0); rgb[16] = b00.xy; rgb[17] = b00.zw;
+        half4 b01 = tex.GATHER(Blue, samp, uv, 2, 0); rgb[18] = b01.xy; rgb[19] = b01.zw;
+        half4 b10 = tex.GATHER(Blue, samp, uv, 0, 2); rgb[20] = b10.xy; rgb[21] = b10.zw;
+        half4 b11 = tex.GATHER(Blue, samp, uv, 2, 2); rgb[22] = b11.xy; rgb[23] = b11.zw;
+    }
+
+    void LoadTexelBlockRGBA(Texture2D tex, SamplerState samp, uint2 dim, uint2 tid, out half2 rgba[32])
+    {
+        float2 size_rcp = rcp(float2(dim));
+        float2 uv = float2(tid * 4u) * size_rcp + size_rcp;
+
+        half4 r00 = tex.GATHER(Red, samp, uv, 0, 0); rgba[0] = r00.xy; rgba[1] = r00.zw;
+        half4 r01 = tex.GATHER(Red, samp, uv, 2, 0); rgba[2] = r01.xy; rgba[3] = r01.zw;
+        half4 r10 = tex.GATHER(Red, samp, uv, 0, 2); rgba[4] = r10.xy; rgba[5] = r10.zw;
+        half4 r11 = tex.GATHER(Red, samp, uv, 2, 2); rgba[6] = r11.xy; rgba[7] = r11.zw;
+
+        half4 g00 = tex.GATHER(Green, samp, uv, 0, 0); rgba[8] = g00.xy; rgba[9] = g00.zw;
+        half4 g01 = tex.GATHER(Green, samp, uv, 2, 0); rgba[10] = g01.xy; rgba[11] = g01.zw;
+        half4 g10 = tex.GATHER(Green, samp, uv, 0, 2); rgba[12] = g10.xy; rgba[13] = g10.zw;
+        half4 g11 = tex.GATHER(Green, samp, uv, 2, 2); rgba[14] = g11.xy; rgba[15] = g11.zw;
+
+        half4 b00 = tex.GATHER(Blue, samp, uv, 0, 0); rgba[16] = b00.xy; rgba[17] = b00.zw;
+        half4 b01 = tex.GATHER(Blue, samp, uv, 2, 0); rgba[18] = b01.xy; rgba[19] = b01.zw;
+        half4 b10 = tex.GATHER(Blue, samp, uv, 0, 2); rgba[20] = b10.xy; rgba[21] = b10.zw;
+        half4 b11 = tex.GATHER(Blue, samp, uv, 2, 2); rgba[22] = b11.xy; rgba[23] = b11.zw;
+
+        half4 a00 = tex.GATHER(Alpha, samp, uv, 0, 0); rgba[24] = a00.xy; rgba[25] = a00.zw;
+        half4 a01 = tex.GATHER(Alpha, samp, uv, 2, 0); rgba[26] = a01.xy; rgba[27] = a01.zw;
+        half4 a10 = tex.GATHER(Alpha, samp, uv, 0, 2); rgba[28] = a10.xy; rgba[29] = a10.zw;
+        half4 a11 = tex.GATHER(Alpha, samp, uv, 2, 2); rgba[30] = a11.xy; rgba[31] = a11.zw;
+    }
+#else
+    void LoadTexelBlockR(Texture2D tex, SamplerState samp, uint2 dim, uint2 tid, out SPK_FLOAT r[16])
+    {
+        float2 size_rcp = rcp(float2(dim));
+        float2 uv = float2(tid * 4u) * size_rcp + size_rcp;
+
+        SPK_FLOAT4 r00 = tex.GATHER(Red, samp, uv, 0, 0);
+        SPK_FLOAT4 r01 = tex.GATHER(Red, samp, uv, 2, 0);
+        SPK_FLOAT4 r10 = tex.GATHER(Red, samp, uv, 0, 2);
+        SPK_FLOAT4 r11 = tex.GATHER(Red, samp, uv, 2, 2);
+
+        r[0]  = r00.w; r[1]  = r00.z;   r[2]  = r01.w; r[3]  = r01.z;
+        r[4]  = r00.x; r[5]  = r00.y;   r[6]  = r01.x; r[7]  = r01.y;
+        r[8]  = r10.w; r[9]  = r10.z;   r[10] = r11.w; r[11] = r11.z;
+        r[12] = r10.x; r[13] = r10.y;   r[14] = r11.x; r[15] = r11.y;
+    }
+
+    void LoadTexelBlockG(Texture2D tex, SamplerState samp, uint2 dim, uint2 tid, out SPK_FLOAT g[16])
+    {
+        float2 size_rcp = rcp(float2(dim));
+        float2 uv = float2(tid * 4u) * size_rcp + size_rcp;
+
+        SPK_FLOAT4 g00 = tex.GATHER(Green, samp, uv, 0, 0);
+        SPK_FLOAT4 g01 = tex.GATHER(Green, samp, uv, 2, 0);
+        SPK_FLOAT4 g10 = tex.GATHER(Green, samp, uv, 0, 2);
+        SPK_FLOAT4 g11 = tex.GATHER(Green, samp, uv, 2, 2);
+
+        g[0]  = g00.w; g[1]  = g00.z;   g[2]  = g01.w; g[3]  = g01.z;
+        g[4]  = g00.x; g[5]  = g00.y;   g[6]  = g01.x; g[7]  = g01.y;
+        g[8]  = g10.w; g[9]  = g10.z;   g[10] = g11.w; g[11] = g11.z;
+        g[12] = g10.x; g[13] = g10.y;   g[14] = g11.x; g[15] = g11.y;
+    }
+
+    void LoadTexelBlockRGB(Texture2D tex, SamplerState samp, uint2 dim, uint2 tid, out SPK_FLOAT3 rgb[16])
+    {
+        float2 size_rcp = rcp(float2(dim));
+        float2 uv = float2(tid * 4u) * size_rcp + size_rcp;
+
+        SPK_FLOAT4 r00 = tex.GATHER(Red, samp, uv, 0, 0);
+        SPK_FLOAT4 r01 = tex.GATHER(Red, samp, uv, 2, 0);
+        SPK_FLOAT4 r10 = tex.GATHER(Red, samp, uv, 0, 2);
+        SPK_FLOAT4 r11 = tex.GATHER(Red, samp, uv, 2, 2);
+
+        rgb[0].x  = r00.w; rgb[1].x  = r00.z;   rgb[2].x  = r01.w; rgb[3].x  = r01.z;
+        rgb[4].x  = r00.x; rgb[5].x  = r00.y;   rgb[6].x  = r01.x; rgb[7].x  = r01.y;
+        rgb[8].x  = r10.w; rgb[9].x  = r10.z;   rgb[10].x = r11.w; rgb[11].x = r11.z;
+        rgb[12].x = r10.x; rgb[13].x = r10.y;   rgb[14].x = r11.x; rgb[15].x = r11.y;
+
+        SPK_FLOAT4 g00 = tex.GATHER(Green, samp, uv, 0, 0);
+        SPK_FLOAT4 g01 = tex.GATHER(Green, samp, uv, 2, 0);
+        SPK_FLOAT4 g10 = tex.GATHER(Green, samp, uv, 0, 2);
+        SPK_FLOAT4 g11 = tex.GATHER(Green, samp, uv, 2, 2);
+
+        rgb[0].y  = g00.w; rgb[1].y  = g00.z;   rgb[2].y  = g01.w; rgb[3].y  = g01.z;
+        rgb[4].y  = g00.x; rgb[5].y  = g00.y;   rgb[6].y  = g01.x; rgb[7].y  = g01.y;
+        rgb[8].y  = g10.w; rgb[9].y  = g10.z;   rgb[10].y = g11.w; rgb[11].y = g11.z;
+        rgb[12].y = g10.x; rgb[13].y = g10.y;   rgb[14].y = g11.x; rgb[15].y = g11.y;
+
+        SPK_FLOAT4 b00 = tex.GATHER(Blue, samp, uv, 0, 0);
+        SPK_FLOAT4 b01 = tex.GATHER(Blue, samp, uv, 2, 0);
+        SPK_FLOAT4 b10 = tex.GATHER(Blue, samp, uv, 0, 2);
+        SPK_FLOAT4 b11 = tex.GATHER(Blue, samp, uv, 2, 2);
+
+        rgb[0].z  = b00.w; rgb[1].z  = b00.z;   rgb[2].z  = b01.w; rgb[3].z  = b01.z;
+        rgb[4].z  = b00.x; rgb[5].z  = b00.y;   rgb[6].z  = b01.x; rgb[7].z  = b01.y;
+        rgb[8].z  = b10.w; rgb[9].z  = b10.z;   rgb[10].z = b11.w; rgb[11].z = b11.z;
+        rgb[12].z = b10.x; rgb[13].z = b10.y;   rgb[14].z = b11.x; rgb[15].z = b11.y;
+    }
+
+    void LoadTexelBlockRGBA(Texture2D tex, SamplerState samp, uint2 dim, uint2 tid, out SPK_FLOAT4 rgba[16])
+    {
+        float2 size_rcp = rcp(float2(dim));
+        float2 uv = float2(tid * 4u) * size_rcp + size_rcp;
+
+        SPK_FLOAT4 r00 = tex.GATHER(Red, samp, uv, 0, 0);
+        SPK_FLOAT4 r01 = tex.GATHER(Red, samp, uv, 2, 0);
+        SPK_FLOAT4 r10 = tex.GATHER(Red, samp, uv, 0, 2);
+        SPK_FLOAT4 r11 = tex.GATHER(Red, samp, uv, 2, 2);
+
+        rgba[0].x  = r00.w; rgba[1].x  = r00.z;   rgba[2].x  = r01.w; rgba[3].x  = r01.z;
+        rgba[4].x  = r00.x; rgba[5].x  = r00.y;   rgba[6].x  = r01.x; rgba[7].x  = r01.y;
+        rgba[8].x  = r10.w; rgba[9].x  = r10.z;   rgba[10].x = r11.w; rgba[11].x = r11.z;
+        rgba[12].x = r10.x; rgba[13].x = r10.y;   rgba[14].x = r11.x; rgba[15].x = r11.y;
+
+        SPK_FLOAT4 g00 = tex.GATHER(Green, samp, uv, 0, 0);
+        SPK_FLOAT4 g01 = tex.GATHER(Green, samp, uv, 2, 0);
+        SPK_FLOAT4 g10 = tex.GATHER(Green, samp, uv, 0, 2);
+        SPK_FLOAT4 g11 = tex.GATHER(Green, samp, uv, 2, 2);
+
+        rgba[0].y  = g00.w; rgba[1].y  = g00.z;   rgba[2].y  = g01.w; rgba[3].y  = g01.z;
+        rgba[4].y  = g00.x; rgba[5].y  = g00.y;   rgba[6].y  = g01.x; rgba[7].y  = g01.y;
+        rgba[8].y  = g10.w; rgba[9].y  = g10.z;   rgba[10].y = g11.w; rgba[11].y = g11.z;
+        rgba[12].y = g10.x; rgba[13].y = g10.y;   rgba[14].y = g11.x; rgba[15].y = g11.y;
+
+        SPK_FLOAT4 b00 = tex.GATHER(Blue, samp, uv, 0, 0);
+        SPK_FLOAT4 b01 = tex.GATHER(Blue, samp, uv, 2, 0);
+        SPK_FLOAT4 b10 = tex.GATHER(Blue, samp, uv, 0, 2);
+        SPK_FLOAT4 b11 = tex.GATHER(Blue, samp, uv, 2, 2);
+
+        rgba[0].z  = b00.w; rgba[1].z  = b00.z;   rgba[2].z  = b01.w; rgba[3].z  = b01.z;
+        rgba[4].z  = b00.x; rgba[5].z  = b00.y;   rgba[6].z  = b01.x; rgba[7].z  = b01.y;
+        rgba[8].z  = b10.w; rgba[9].z  = b10.z;   rgba[10].z = b11.w; rgba[11].z = b11.z;
+        rgba[12].z = b10.x; rgba[13].z = b10.y;   rgba[14].z = b11.x; rgba[15].z = b11.y;
+
+        SPK_FLOAT4 a00 = tex.GATHER(Alpha, samp, uv, 0, 0);
+        SPK_FLOAT4 a01 = tex.GATHER(Alpha, samp, uv, 2, 0);
+        SPK_FLOAT4 a10 = tex.GATHER(Alpha, samp, uv, 0, 2);
+        SPK_FLOAT4 a11 = tex.GATHER(Alpha, samp, uv, 2, 2);
+
+        rgba[0].w  = a00.w; rgba[1].w  = a00.z;   rgba[2].w  = a01.w; rgba[3].w  = a01.z;
+        rgba[4].w  = a00.x; rgba[5].w  = a00.y;   rgba[6].w  = a01.x; rgba[7].w  = a01.y;
+        rgba[8].w  = a10.w; rgba[9].w  = a10.z;   rgba[10].w = a11.w; rgba[11].w = a11.z;
+        rgba[12].w = a10.x; rgba[13].w = a10.y;   rgba[14].w = a11.x; rgba[15].w = a11.y;
+    }
+#endif
+
+Texture2D _Src;
+SamplerState sampler_Src;
+RWTexture2D<DST_FORMAT> _Dst;
+
+#if SPARK_FULL_VERSION
+
+    #ifdef FORMAT_BC1_RGB
+        SPARK_KERNEL_RGB(spark_encode_bc1_rgb_q0);
+        SPARK_KERNEL_RGB(spark_encode_bc1_rgb_q1);
+        SPARK_KERNEL_RGB(spark_encode_bc1_rgb_q2);
+    #endif
+
+    #ifdef FORMAT_BC3_RGBA
+        SPARK_KERNEL_RGBA(spark_encode_bc3_rgba_q0);
+        SPARK_KERNEL_RGBA(spark_encode_bc3_rgba_q1);
+        SPARK_KERNEL_RGBA(spark_encode_bc3_rgba_q2);
+    #endif
+
+    #ifdef FORMAT_BC4_R
+        //SPARK_KERNEL_R(spark_encode_bc4_r_q0);
+        SPARK_KERNEL_R(spark_encode_bc4_r_q1);
+        SPARK_KERNEL_R(spark_encode_bc4_r_q2);
+    #endif
+
+    #ifdef FORMAT_BC5_RG
+        //SPARK_KERNEL_RG2(spark_encode_bc5_rg_q0, spark_encode_bc4_r_q0);
+        SPARK_KERNEL_RG2(spark_encode_bc5_rg_q1, spark_encode_bc4_r_q1);
+        SPARK_KERNEL_RG2(spark_encode_bc5_rg_q2, spark_encode_bc4_r_q2);
+    #endif
+
+    #ifdef FORMAT_BC7_RGB
+        SPARK_KERNEL_RGB(spark_encode_bc7_rgb_q0);
+        SPARK_KERNEL_RGB(spark_encode_bc7_rgb_q1);
+        SPARK_KERNEL_RGB(spark_encode_bc7_rgb_q2);
+    #endif
+
+    #ifdef FORMAT_BC7_RGBA
+        SPARK_KERNEL_RGBA(spark_encode_bc7_rgba_q0);
+        SPARK_KERNEL_RGBA(spark_encode_bc7_rgba_q1);
+        SPARK_KERNEL_RGBA(spark_encode_bc7_rgba_q2);
+    #endif
+
+    #ifdef FORMAT_ETC2_RGB
+        SPARK_KERNEL_RGB(spark_encode_etc2_rgb_q0);
+        SPARK_KERNEL_RGB(spark_encode_etc2_rgb_q1);
+        SPARK_KERNEL_RGB(spark_encode_etc2_rgb_q2);
+    #endif
+
+    #ifdef FORMAT_ETC2_RGBA
+        SPARK_KERNEL_RGBA(spark_encode_etc2_rgba_q0);
+        SPARK_KERNEL_RGBA(spark_encode_etc2_rgba_q1);
+        SPARK_KERNEL_RGBA(spark_encode_etc2_rgba_q2);
+    #endif
+
+    #ifdef FORMAT_EAC_R
+        SPARK_KERNEL_R(spark_encode_eac_r_q0);
+        SPARK_KERNEL_R(spark_encode_eac_r_q1);
+        SPARK_KERNEL_R(spark_encode_eac_r_q2);
+    #endif
+
+    #ifdef FORMAT_EAC_RG
+        SPARK_KERNEL_RG2(spark_encode_eac_rg_q0, spark_encode_eac_r_q0);
+        SPARK_KERNEL_RG2(spark_encode_eac_rg_q1, spark_encode_eac_r_q1);
+        SPARK_KERNEL_RG2(spark_encode_eac_rg_q2, spark_encode_eac_r_q2);
+    #endif
+
+    #ifdef FORMAT_ASTC_RGB
+        SPARK_KERNEL_RGB(spark_encode_astc_4x4_rgb_q0);
+        SPARK_KERNEL_RGB(spark_encode_astc_4x4_rgb_q1);
+        SPARK_KERNEL_RGB(spark_encode_astc_4x4_rgb_q2);
+        SPARK_KERNEL_RGB(spark_encode_astc_4x4_rgb_q3);
+    #endif
+
+    #ifdef FORMAT_ASTC_RGBA
+        SPARK_KERNEL_RGBA(spark_encode_astc_4x4_rgba_q0);
+        SPARK_KERNEL_RGBA(spark_encode_astc_4x4_rgba_q1);
+        SPARK_KERNEL_RGBA(spark_encode_astc_4x4_rgba_q2);
+        SPARK_KERNEL_RGBA(spark_encode_astc_4x4_rgba_q3);
+    #endif
+
+#else
+
+    #ifdef FORMAT_BC1_RGB
+        SPARK_KERNEL_RGB(spark_encode_bc1_rgb_q2);
+    #endif
+
+    #ifdef FORMAT_BC4_R
+        SPARK_KERNEL_R(spark_encode_bc4_r_q2);
+    #endif
+
+    #ifdef FORMAT_BC5_RG
+        SPARK_KERNEL_RG2(spark_encode_bc5_rg_q2, spark_encode_bc4_r_q2);
+    #endif
+
+    #ifdef FORMAT_BC7_RGB
+        SPARK_KERNEL_RGB(spark_encode_bc7_rgb_q2);
+    #endif
+
+    #ifdef FORMAT_BC7_RGBA
+        SPARK_KERNEL_RGBA(spark_encode_bc7_rgba_q2);
+    #endif
+
+    #ifdef FORMAT_ETC2_RGB
+        SPARK_KERNEL_RGB(spark_encode_etc2_rgb_q1);
+    #endif
+
+    #ifdef FORMAT_EAC_R
+        SPARK_KERNEL_R(spark_encode_eac_r_q0);
+    #endif
+
+    #ifdef FORMAT_EAC_RG
+        SPARK_KERNEL_RG2(spark_encode_eac_rg_q0, spark_encode_eac_r_q0);
+    #endif
+
+    #ifdef FORMAT_ASTC_RGB
+        SPARK_KERNEL_RGB(spark_encode_astc_4x4_rgb_q2);
+    #endif
+
+    #ifdef FORMAT_ASTC_RGBA
+        SPARK_KERNEL_RGBA(spark_encode_astc_4x4_rgba_q2);
+    #endif
+
+#endif
