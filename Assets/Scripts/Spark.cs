@@ -148,7 +148,7 @@ public static class Spark
             cmd.SetComputeBufferParam(shader, kernel, "Tables", constantBuffer);
 
         int groupsX = (blockW + 15) / 16;
-        int groupsY = (blockH + 15) / 16;
+        int groupsY = (blockH + 7) / 8;
 
         cmd.SetComputeTextureParam(shader, kernel, "_Src", source);
         cmd.SetComputeTextureParam(shader, kernel, "_Dst", rt);
