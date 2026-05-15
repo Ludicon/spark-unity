@@ -67,48 +67,60 @@
 
 #endif
 
+#if SPARK_FULL_VERSION
 
-// Gate SPK_ENABLE_F16 directly on SHADER_API_* so the pragma scanner sees the same condition.
-#if SHADER_API_GLES3 || SHADER_API_D3D11
-    #define SPK_ENABLE_F16 0
-    #define SPK_ENABLE_F16x2 0
-#elif SHADER_API_METAL
-    #define SPK_ENABLE_F16 1
-    #define SPK_ENABLE_F16x2 1
-#elif (SHADER_API_VULKAN && SHADER_API_MOBILE) || SHADER_API_METAL
-    // Vulkan on Mobile always supports fp16 (at least on the devices we care about).
-    // Metal always supports fp16.
-    #define SPK_ENABLE_F16 1
-    #define SPK_ENABLE_F16x2 1
-#elif SHADER_API_SWITCH || SHADER_API_SWITCH2
-    // Both Switch targets support fp16.
-    #define SPK_ENABLE_F16 1
-    #define SPK_ENABLE_F16x2 1
-#elif SHADER_API_PS5
-    // PS5 always supports fp16.
-    #define SPK_ENABLE_F16 1
-    #define SPK_ENABLE_F16x2 1
-#elif SHADER_API_PS4
-    // PS4 Pro support fp16, but PS4 does not. Use multicompile to support both.
-    #pragma multi_compile _ UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
-    #define SPK_ENABLE_F16 REAL_IS_HALF
-    #define SPK_ENABLE_F16x2 REAL_IS_HALF
-#elif SHADER_API_XBOXONE || SHADER_API_GAMECORE_XBOXONE
-    #define SPK_ENABLE_F16 0
-    #define SPK_ENABLE_F16x2 0
-#elif SHADER_API_GAMECORE_SCARLETT
-    // Xbox Series S / Series X support fp16.
-    #define SPK_ENABLE_F16 1
-    #define SPK_ENABLE_F16x2 1
-#elif SHADER_API_WEBGPU
-    // WebGPU supports fp16, but does not support int16 - This would require a different shader variant that we currently don't provide.
-    #define SPK_ENABLE_F16 0
-    #define SPK_ENABLE_F16x2 0
+    // Gate SPK_ENABLE_F16 directly on SHADER_API_* so the pragma scanner sees the same condition.
+    #if SHADER_API_GLES3 || SHADER_API_D3D11
+        #define SPK_ENABLE_F16 0
+        #define SPK_ENABLE_F16x2 0
+    #elif SHADER_API_METAL
+        #define SPK_ENABLE_F16 1
+        #define SPK_ENABLE_F16x2 1
+    #elif (SHADER_API_VULKAN && SHADER_API_MOBILE) || SHADER_API_METAL
+        // Vulkan on Mobile always supports fp16 (at least on the devices we care about).
+        // Metal always supports fp16.
+        #define SPK_ENABLE_F16 1
+        #define SPK_ENABLE_F16x2 1
+    #elif SHADER_API_VULKAN
+        // On Desktop Vulkan, compile both variants.
+        #pragma multi_compile _ UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
+        #define SPK_ENABLE_F16 REAL_IS_HALF
+        #define SPK_ENABLE_F16x2 REAL_IS_HALF
+    #elif SHADER_API_SWITCH || SHADER_API_SWITCH2
+        // Both Switch targets support fp16.
+        #define SPK_ENABLE_F16 1
+        #define SPK_ENABLE_F16x2 1
+    #elif SHADER_API_PS5
+        // PS5 always supports fp16.
+        #define SPK_ENABLE_F16 1
+        #define SPK_ENABLE_F16x2 1
+    #elif SHADER_API_PS4
+        // PS4 Pro support fp16, but PS4 does not. Use multicompile to support both.
+        #pragma multi_compile _ UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
+        #define SPK_ENABLE_F16 REAL_IS_HALF
+        #define SPK_ENABLE_F16x2 REAL_IS_HALF
+    #elif SHADER_API_XBOXONE || SHADER_API_GAMECORE_XBOXONE
+        #define SPK_ENABLE_F16 0
+        #define SPK_ENABLE_F16x2 0
+    #elif SHADER_API_GAMECORE_SCARLETT
+        // Xbox Series S / Series X support fp16.
+        #define SPK_ENABLE_F16 1
+        #define SPK_ENABLE_F16x2 1
+    #elif SHADER_API_WEBGPU
+        // WebGPU supports fp16, but does not support int16 - This would require a different shader variant that we currently don't provide.
+        #define SPK_ENABLE_F16 0
+        #define SPK_ENABLE_F16x2 0
+    #else
+        // On unknown platforms, disable fp16.
+        #define SPK_ENABLE_F16 0
+        #define SPK_ENABLE_F16x2 0
+    #endif
+
 #else
-    // On Desktop PC, compile both variants.
-    #pragma multi_compile _ UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
-    #define SPK_ENABLE_F16 REAL_IS_HALF
-    #define SPK_ENABLE_F16x2 REAL_IS_HALF
+
+    #define SPK_ENABLE_F16 0
+    #define SPK_ENABLE_F16x2 0
+
 #endif
 
 //#if SPK_ENABLE_F16 && !SHADER_API_GLES3
