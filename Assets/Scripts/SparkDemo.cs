@@ -266,13 +266,15 @@ public class SparkDemo : MonoBehaviour
 
     /// <summary>
     /// Load textures from StreamingAssets/SparkTextures/.
-    /// On desktop, enumerates the directory directly.
-    /// On mobile (Android), uses UnityWebRequest + textures.txt manifest
-    /// since StreamingAssets is inside the APK.
+    /// On Android, StreamingAssets live inside the APK (a zip), so we can't
+    /// enumerate or read files directly — we use UnityWebRequest with a
+    /// textures.txt manifest instead.
+    /// On desktop and iOS, StreamingAssets are regular files on disk, so we
+    /// enumerate the directory and read them directly.
     /// </summary>
     IEnumerator LoadTexturesFromStreamingAssets()
     {
-        if (Application.isMobilePlatform)
+        if (Application.platform == RuntimePlatform.Android)
             yield return LoadTexturesFromManifest();
         else
             LoadTexturesFromDirectory();
