@@ -41,9 +41,9 @@ The included `SparkDemo` scene loads PNG textures from `StreamingAssets/SparkTex
 
 ## Requirements
 
-Tested on Unity 6.3 LTS (6000.3.11f1).
-Tested on Unity 6.4 (6000.4.7f1).
-Tested on Unity 6.6 (6000.6.0a5).
+- Tested on Unity 6.3 LTS (6000.3.11f1).
+- Tested on Unity 6.4 (6000.4.7f1).
+- Tested on Unity 6.6 (6000.6.0a5).
 
 ## License
 
