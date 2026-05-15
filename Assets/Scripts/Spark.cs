@@ -12,16 +12,16 @@ using UnityEngine.Rendering;
 /// </summary>
 public enum SparkFormat
 {
-    // Generic — auto-resolved to the best supported format on the current GPU
-    R,              // Single channel → BC4_R or EAC_R
-    RG,             // Two channels   → BC5_RG or EAC_RG
-    RGB,            // Color          → BC7_RGB, ASTC_4x4_RGB, ETC2_RGB, or BC1_RGB
-    RGBA,           // Color + alpha  → BC7_RGBA, ASTC_4x4_RGBA, ETC2_RGBA, or BC3_RGBA
+    // Generic - auto-resolved to the best supported format on the current GPU
+    R,              // Single channel -> BC4_R or EAC_R
+    RG,             // Two channels   -> BC5_RG or EAC_RG
+    RGB,            // Color          -> BC7_RGB or ASTC_4x4_RGB
+    RGBA,           // Color + alpha  -> BC7_RGBA or ASTC_4x4_RGBA
 
     // Desktop formats
     BC1_RGB,        // RGB, 4 bpp
     BC4_R,          // Single channel (R), 4 bpp
-    BC5_RG,         // Two channels (RG), 8 bpp — ideal for normal maps
+    BC5_RG,         // Two channels (RG), 8 bpp
     BC7_RGB,        // High-quality RGB, 8 bpp
     BC7_RGBA,       // High-quality RGBA, 8 bpp
 
@@ -48,6 +48,7 @@ public enum SparkFormat
 ///
 ///   // Preload shaders to avoid first-encode hitch
 ///   Spark.Preload(SparkFormat.RGB, SparkFormat.RGBA);
+///
 ///   // Or spread across frames via coroutine:
 ///   StartCoroutine(Spark.PreloadAsync(SparkFormat.RGB, SparkFormat.RGBA));
 ///

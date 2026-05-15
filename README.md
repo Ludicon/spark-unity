@@ -6,16 +6,13 @@ GPU texture compression for Unity using [Spark](https://github.com/ludicon/spark
 
 ## Supported Formats
 
-| Format | Type | BPP |
-|--------|------|-----|
-| BC1_RGB | Desktop | 4 |
-| BC4_R | Desktop | 4 |
-| BC5_RG | Desktop | 8 |
-| BC7_RGB, BC7_RGBA | Desktop | 8 |
-| ASTC_4x4_RGB, ASTC_4x4_RGBA | Mobile | 8 |
-| ETC2_RGB | Mobile | 4 |
-| EAC_R | Mobile | 4 |
-| EAC_RG | Mobile | 8 |
+| Channels | BC Format | Mobile Format | BPP |
+|----------|-----------|---------------|-----|
+| RGB      | BC1_RGB   | ETC2_RGB      | 4   |
+| R        | BC4_R     | EAC_R         | 4   |
+| RG       | BC5_RG    | EAC_RG        | 8   |
+| RGB      | BC7_RGB   | ASTC_4x4_RGB  | 8   |
+| RGBA     | BC7_RGBA  | ASTC_4x4_RGBA | 8   |
 
 Generic formats (`SparkFormat.R`, `RG`, `RGB`, `RGBA`) auto-resolve to the best format supported on the current GPU.
 
@@ -28,11 +25,11 @@ Texture2D compressed = Spark.EncodeTexture(source, SparkFormat.BC7_RGB);
 // Auto-select best format for current GPU
 Texture2D compressed = Spark.EncodeTexture(source, SparkFormat.RGB);
 
-// With quality and sRGB options
-Texture2D compressed = Spark.EncodeTexture(source, SparkFormat.RGB, SparkQuality.High, srgb: true);
+// With sRGB options
+Texture2D compressed = Spark.EncodeTexture(source, SparkFormat.RGB, srgb: true);
 
 // Preload shaders to avoid first-encode hitch
-Spark.Preload(SparkQuality.Medium, SparkFormat.RGB, SparkFormat.RGBA);
+Spark.Preload(SparkFormat.RGB, SparkFormat.RGBA);
 
 // Release cached resources when done
 Spark.ReleaseCache();
@@ -45,3 +42,14 @@ The included `SparkDemo` scene loads PNG textures from `StreamingAssets/SparkTex
 ## Requirements
 
 Tested on Unity 6.3 LTS (6000.3.11f1).
+Tested on Unity 6.4 (6000.4.7f1).
+Tested on Unity 6.6 (6000.6.0a5).
+
+## License
+
+spark-unity is free for non-commercial use.
+
+    The C# code and Unity project files are released under MIT license.
+    Use of the Spark shaders is covered under the spark-unity EULA.
+
+See https://ludicon.com/spark-unity/#Licensing for details on how to use spark-unity in commercial projects.
