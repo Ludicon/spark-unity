@@ -33,3 +33,4 @@ spark_*.hlsli.meta
 # OS
 .DS_Store
 Thumbs.db
+Export
