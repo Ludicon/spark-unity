@@ -75,25 +75,38 @@ public static class Spark
     /// Generic formats (R, RG, RGB, RGBA) are resolved to the best concrete format
     /// supported on the current GPU.
     /// </summary>
-    /// <param name="source">Source texture (any GPU-readable format, e.g. RGBA32).</param>
+    /// <param name="source">Source texture. If the source has a mip chain, the generated texture also has mips.</param>
     /// <param name="format">Target compressed format (concrete or generic).</param>
     /// <param name="srgb">If true, the output texture uses an sRGB format.</param>
     public static Texture2D EncodeTexture(Texture source, SparkFormat format, bool srgb = false)
     {
         format = ResolveFormat(format);
 
+        // Do not encode mips smaller than 4 pixels per side.
+        int targetMipCount = ComputeMipCount(source.width, source.height);
+        int mipCount = Math.Min(source.mipmapCount, targetMipCount);
+
         GraphicsFormat compressedFmt = GetCompressedFormat(format, srgb);
-        var result = new Texture2D(source.width, source.height, compressedFmt,
+        var result = new Texture2D(source.width, source.height, compressedFmt, mipCount,
             TextureCreationFlags.DontInitializePixels | TextureCreationFlags.DontUploadUponCreate);
 
         var cmd = GetCommandBuffer();
         cmd.Clear();
         cmd.BeginSample(GpuSampleName);
-        EncodeTexture(cmd, source, result, format);
+        for (int mip = 0; mip < mipCount; mip++)
+            EncodeTexture(cmd, source, result, format, mip, mip);
         cmd.EndSample(GpuSampleName);
         Graphics.ExecuteCommandBuffer(cmd);
 
         return result;
+    }
+
+    // Largest n such that every mip 0..n-1 has both dimensions >= 4 (one BC/ASTC block).
+    static int ComputeMipCount(int w, int h)
+    {
+        int n = 0;
+        while (w >= 4 && h >= 4) { n++; w >>= 1; h >>= 1; }
+        return Math.Max(1, n);
     }
 
     /// <summary>
@@ -109,7 +122,9 @@ public static class Spark
     /// <param name="source">Source texture (any GPU-readable format, e.g. RGBA32).</param>
     /// <param name="destination">Destination texture with a compressed GraphicsFormat.</param>
     /// <param name="format">Target compressed format (concrete or generic).</param>
-    public static void EncodeTexture(CommandBuffer cmd, Texture source, Texture destination, SparkFormat format)
+    /// <param name="sourceMip">Mip level of <paramref name="source"/> to sample (default 0).</param>
+    /// <param name="destMip">Mip level of <paramref name="destination"/> to write into (default 0).</param>
+    public static void EncodeTexture(CommandBuffer cmd, Texture source, Texture destination, SparkFormat format, int sourceMip = 0, int destMip = 0)
     {
         if (source == null)
             throw new ArgumentNullException(nameof(source));
@@ -120,36 +135,32 @@ public static class Spark
 
         format = ResolveFormat(format);
 
-        int width  = source.width;
-        int height = source.height;
-
-        if (width % 4 != 0 || height % 4 != 0)
-            throw new ArgumentException($"Texture dimensions ({width}x{height}) must be multiples of 4.");
+        int width  = Math.Max(1, source.width  >> sourceMip);
+        int height = Math.Max(1, source.height >> sourceMip);
 
         // Resolve shader and kernel.
         ComputeShader shader = Shader;
         if (shader == null)
-            throw new InvalidOperationException(
-                $"Could not load compute shader. Make sure SparkUnity is in a Resources folder.");
+            throw new InvalidOperationException($"Could not load compute shader. Make sure SparkUnity is in a Resources folder.");
 
         string kernelName = GetKernelName(format);
         int kernel = shader.FindKernel(kernelName);
 
-        int blockW = width  / 4;
-        int blockH = height / 4;
+        int blockW = (width  + 3) / 4;
+        int blockH = (height + 3) / 4;
 
-        // Get or reuse cached render texture sized in blocks.
+        // Get or reuse cached render texture sized in blocks. The cache grows to the high-water mark
+        // so a mip loop (largest -> smallest) reuses the same RT for every level.
         GraphicsFormat outputFmt = GetTemporaryOutputFormat(format);
         var rt = GetOrCreateRT(blockW, blockH, outputFmt);
 
         int groupsX = (blockW + 15) / 16;
         int groupsY = (blockH + 7) / 8;
 
-        cmd.SetComputeTextureParam(shader, kernel, "_Src", source);
+        cmd.SetComputeTextureParam(shader, kernel, "_Src", source, sourceMip);
         cmd.SetComputeTextureParam(shader, kernel, "_Dst", rt);
         cmd.DispatchCompute(shader, kernel, groupsX, groupsY, 1);
-        // The uint RT pixels map 1:1 to compressed blocks (same byte layout).
-        cmd.CopyTexture(rt, 0, 0, destination, 0, 0);
+        cmd.CopyTexture(rt, 0, 0, 0, 0, blockW, blockH, destination, 0, destMip, 0, 0);
     }
 
     /// <summary>
@@ -394,7 +405,7 @@ public static class Spark
         bool large = (outputFmt == GraphicsFormat.R32G32B32A32_UInt);
         RenderTexture cached = large ? s_cachedLargeRT : s_cachedSmallRT;
 
-        if (cached != null && cached.width == blockW && cached.height == blockH)
+        if (cached != null && cached.width >= blockW && cached.height >= blockH)
             return cached;
 
         if (cached != null)
