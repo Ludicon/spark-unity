@@ -1,5 +1,11 @@
 {
   "dependencies": {
+    "com.ludicon.spark": {
+      "version": "file:com.ludicon.spark",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.unity.collab-proxy": {
       "version": "2.11.4",
       "depth": 0,
