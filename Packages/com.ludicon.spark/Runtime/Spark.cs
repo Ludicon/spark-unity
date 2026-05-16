@@ -157,12 +157,32 @@ public static class Spark
         int groupsX = (blockW + 15) / 16;
         int groupsY = (blockH + 7) / 8;
 
-        cmd.SetComputeTextureParam(shader, kernel, "_Src", source, sourceMip);
+        // This really sucks. It appears that Unity doesn't have a way to bind a specific mip level
+        // of a Texture2D or RenderTexture as an SRV; the mipLevel parameter only affects UAV
+        // bindings (RWTexture2D). So for sourceMip > 0 we copy that mip into a single-level scratch
+        // RT and bind that. Another alternative would be to use a shader that uses textureFetch()
+        // instead of gather(), but that would require an additional shader variant..
+        bool needsScratch = sourceMip > 0;
+        if (needsScratch)
+        {
+            cmd.GetTemporaryRT(s_srcMipCopyId, width, height, 0, FilterMode.Point, source.graphicsFormat, 1);
+            cmd.CopyTexture(source, 0, sourceMip, s_srcMipCopyId, 0, 0);
+            cmd.SetComputeTextureParam(shader, kernel, "_Src", s_srcMipCopyId);
+        }
+        else
+        {
+            cmd.SetComputeTextureParam(shader, kernel, "_Src", source);
+        }
         cmd.SetComputeTextureParam(shader, kernel, "_Dst", rt);
         cmd.SetComputeIntParams(shader, "_SrcSize", width, height);
         cmd.DispatchCompute(shader, kernel, groupsX, groupsY, 1);
         cmd.CopyTexture(rt, 0, 0, 0, 0, blockW, blockH, destination, 0, destMip, 0, 0);
+
+        if (needsScratch)
+            cmd.ReleaseTemporaryRT(s_srcMipCopyId);
     }
+
+    static readonly int s_srcMipCopyId = UnityEngine.Shader.PropertyToID("_SparkSrcMipCopy");
 
     /// <summary>
     /// Returns true if the given format is supported on the current platform.
