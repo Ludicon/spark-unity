@@ -220,7 +220,7 @@
     #define SPARK_KERNEL_R(kernel_name) \
         [numthreads(SPK_BLOCK_DIM_X, SPK_BLOCK_DIM_Y, 1)] \
         void KERNEL(kernel_name)(uint2 tid : SV_DispatchThreadID) { \
-            uint2 dim; _Src.GetDimensions(dim.x, dim.y); \
+            uint2 dim = (uint2)_SrcSize; \
             uint2 block_dim = (dim + 3u) / 4u; \
             [branch] if (any(tid >= block_dim)) return; \
             half2 input_r[8]; \
@@ -231,7 +231,7 @@
     #define SPARK_KERNEL_RG2(kernel_name, function_name) \
         [numthreads(SPK_BLOCK_DIM_X, SPK_BLOCK_DIM_Y, 1)] \
         void KERNEL(kernel_name)(uint2 tid : SV_DispatchThreadID) { \
-            uint2 dim; _Src.GetDimensions(dim.x, dim.y); \
+            uint2 dim = (uint2)_SrcSize; \
             uint2 block_dim = (dim + 3u) / 4u; \
             [branch] if (any(tid >= block_dim)) return; \
             half2 input_r[8]; \
@@ -250,7 +250,7 @@
     #define SPARK_KERNEL_RGB(kernel_name) \
         [numthreads(SPK_BLOCK_DIM_X, SPK_BLOCK_DIM_Y, 1)] \
         void KERNEL(kernel_name)(uint2 tid : SV_DispatchThreadID) { \
-            uint2 dim; _Src.GetDimensions(dim.x, dim.y); \
+            uint2 dim = (uint2)_SrcSize; \
             uint2 block_dim = (dim + 3u) / 4u; \
             [branch] if (any(tid >= block_dim)) return; \
             half2 input_rgb[24]; \
@@ -261,7 +261,7 @@
     #define SPARK_KERNEL_RGBA(kernel_name) \
         [numthreads(SPK_BLOCK_DIM_X, SPK_BLOCK_DIM_Y, 1)] \
         void KERNEL(kernel_name)(uint2 tid : SV_DispatchThreadID) { \
-            uint2 dim; _Src.GetDimensions(dim.x, dim.y); \
+            uint2 dim = (uint2)_SrcSize; \
             uint2 block_dim = (dim + 3u) / 4u; \
             [branch] if (any(tid >= block_dim)) return; \
             half2 input_rgba[32]; \
@@ -272,7 +272,7 @@
     #define SPARK_KERNEL_R(kernel_name) \
         [numthreads(SPK_BLOCK_DIM_X, SPK_BLOCK_DIM_Y, 1)] \
         void KERNEL(kernel_name)(uint2 tid : SV_DispatchThreadID) { \
-            uint2 dim; _Src.GetDimensions(dim.x, dim.y); \
+            uint2 dim = (uint2)_SrcSize; \
             uint2 block_dim = (dim + 3u) / 4u; \
             [branch] if (any(tid >= block_dim)) return; \
             SPK_FLOAT input_r[16]; \
@@ -283,7 +283,7 @@
     #define SPARK_KERNEL_RG2(kernel_name, function_name) \
         [numthreads(SPK_BLOCK_DIM_X, SPK_BLOCK_DIM_Y, 1)] \
         void KERNEL(kernel_name)(uint2 tid : SV_DispatchThreadID) { \
-            uint2 dim; _Src.GetDimensions(dim.x, dim.y); \
+            uint2 dim = (uint2)_SrcSize; \
             uint2 block_dim = (dim + 3u) / 4u; \
             [branch] if (any(tid >= block_dim)) return; \
             SPK_FLOAT input_r[16]; \
@@ -302,7 +302,7 @@
     #define SPARK_KERNEL_RGB(kernel_name) \
         [numthreads(SPK_BLOCK_DIM_X, SPK_BLOCK_DIM_Y, 1)] \
         void KERNEL(kernel_name)(uint2 tid : SV_DispatchThreadID) { \
-            uint2 dim; _Src.GetDimensions(dim.x, dim.y); \
+            uint2 dim = (uint2)_SrcSize; \
             uint2 block_dim = (dim + 3u) / 4u; \
             [branch] if (any(tid >= block_dim)) return; \
             SPK_FLOAT3 input_rgb[16]; \
@@ -313,7 +313,7 @@
     #define SPARK_KERNEL_RGBA(kernel_name) \
         [numthreads(SPK_BLOCK_DIM_X, SPK_BLOCK_DIM_Y, 1)] \
         void KERNEL(kernel_name)(uint2 tid : SV_DispatchThreadID) { \
-            uint2 dim; _Src.GetDimensions(dim.x, dim.y); \
+            uint2 dim = (uint2)_SrcSize; \
             uint2 block_dim = (dim + 3u) / 4u; \
             [branch] if (any(tid >= block_dim)) return; \
             SPK_FLOAT4 input_rgba[16]; \
@@ -510,6 +510,7 @@
 Texture2D _Src;
 SamplerState sampler_Src;
 RWTexture2D<DST_FORMAT> _Dst;
+int2 _SrcSize;
 
 #if SPARK_FULL_VERSION
 

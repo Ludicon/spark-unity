@@ -159,6 +159,7 @@ public static class Spark
 
         cmd.SetComputeTextureParam(shader, kernel, "_Src", source, sourceMip);
         cmd.SetComputeTextureParam(shader, kernel, "_Dst", rt);
+        cmd.SetComputeIntParams(shader, "_SrcSize", width, height);
         cmd.DispatchCompute(shader, kernel, groupsX, groupsY, 1);
         cmd.CopyTexture(rt, 0, 0, 0, 0, blockW, blockH, destination, 0, destMip, 0, 0);
     }
