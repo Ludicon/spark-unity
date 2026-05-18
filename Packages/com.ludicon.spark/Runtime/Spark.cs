@@ -90,6 +90,12 @@ public static class Spark
         var result = new Texture2D(source.width, source.height, compressedFmt, mipCount,
             TextureCreationFlags.DontInitializePixels | TextureCreationFlags.DontUploadUponCreate);
 
+        // This discards the CPU memory allocation of Texture2D.
+        // Wouldn't it be nice if we could avoid allocating it in the first place?
+        if (result.isReadable) {
+            result.Apply(false, true);
+        }
+
         var cmd = GetCommandBuffer();
         cmd.Clear();
         cmd.BeginSample(GpuSampleName);
