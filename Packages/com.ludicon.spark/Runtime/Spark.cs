@@ -171,7 +171,19 @@ public static class Spark
         bool needsScratch = sourceMip > 0;
         if (needsScratch)
         {
-            cmd.GetTemporaryRT(s_srcMipCopyId, width, height, 0, FilterMode.Point, source.graphicsFormat, 1);
+            // This fails on Android because the value returned by source.graphicsFormat (88) appears
+            // to be undocumented/unsupported, and GetTemporaryRT fails. When this happens, try to
+            // find a valid format.
+            GraphicsFormat scratchFmt = source.graphicsFormat;
+            if (!SystemInfo.IsFormatSupported(scratchFmt, GraphicsFormatUsage.Render))
+            {
+                if (source is Texture2D tex2d)
+                    scratchFmt = GraphicsFormatUtility.GetGraphicsFormat(tex2d.format, isSRGB: false);
+                if (!SystemInfo.IsFormatSupported(scratchFmt, GraphicsFormatUsage.Render))
+                    scratchFmt = GraphicsFormat.R8G8B8A8_UNorm;
+            }
+
+            cmd.GetTemporaryRT(s_srcMipCopyId, width, height, 0, FilterMode.Point, scratchFmt, 1);
             cmd.CopyTexture(source, 0, sourceMip, s_srcMipCopyId, 0, 0);
             cmd.SetComputeTextureParam(shader, kernel, "_Src", s_srcMipCopyId);
         }
