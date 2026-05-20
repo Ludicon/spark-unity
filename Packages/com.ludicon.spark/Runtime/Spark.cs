@@ -65,8 +65,17 @@ public enum SparkFormat
 public static class Spark
 {
     // ───────────────────────────────────────────────
-    //  Public API
+    //  Encode Texture
     // ───────────────────────────────────────────────
+
+    static CommandBuffer s_cmd;
+
+    static CommandBuffer GetCommandBuffer()
+    {
+        if (s_cmd == null)
+            s_cmd = new CommandBuffer { name = "SparkEncode" };
+        return s_cmd;
+    }
 
     /// <summary>
     /// Encode a texture into a GPU-compressed format.
@@ -87,6 +96,7 @@ public static class Spark
         int mipCount = Math.Min(source.mipmapCount, targetMipCount);
 
         GraphicsFormat compressedFmt = GetCompressedFormat(format, srgb);
+
         var result = new Texture2D(source.width, source.height, compressedFmt, mipCount,
             TextureCreationFlags.DontInitializePixels | TextureCreationFlags.DontUploadUponCreate);
 
@@ -98,10 +108,8 @@ public static class Spark
 
         var cmd = GetCommandBuffer();
         cmd.Clear();
-        cmd.BeginSample(GpuSampleName);
         for (int mip = 0; mip < mipCount; mip++)
             EncodeTexture(cmd, source, result, format, mip, mip);
-        cmd.EndSample(GpuSampleName);
         Graphics.ExecuteCommandBuffer(cmd);
 
         return result;
@@ -158,7 +166,12 @@ public static class Spark
         // Get or reuse cached render texture sized in blocks. The cache grows to the high-water mark
         // so a mip loop (largest -> smallest) reuses the same RT for every level.
         GraphicsFormat outputFmt = GetTemporaryOutputFormat(format);
-        var rt = GetOrCreateRT(blockW, blockH, outputFmt);
+
+        //Debug.Log($"[Spark]   mip={sourceMip} {width}x{height} blocks={blockW}x{blockH} | kernel='{kernelName}' index={kernel} | outputFmt={outputFmt} (Sample={SystemInfo.IsFormatSupported(outputFmt, GraphicsFormatUsage.Sample)} LoadStore={SystemInfo.IsFormatSupported(outputFmt, GraphicsFormatUsage.LoadStore)})");
+
+        bool needsOutputCopy = destination.graphicsFormat != outputFmt || destination.width < blockW || destination.height < blockH;
+
+        var rt = needsOutputCopy ? GetOrCreateRT(blockW, blockH, outputFmt) : destination;
 
         int groupsX = (blockW + 15) / 16;
         int groupsY = (blockH + 7) / 8;
@@ -168,7 +181,7 @@ public static class Spark
         // bindings (RWTexture2D). So for sourceMip > 0 we copy that mip into a single-level scratch
         // RT and bind that. Another alternative would be to use a shader that uses textureFetch()
         // instead of gather(), but that would require an additional shader variant..
-        bool needsScratch = sourceMip > 0;
+        bool needsScratch = false;//sourceMip > 0;
         if (needsScratch)
         {
             // This fails on Android because the value returned by source.graphicsFormat (88) appears
@@ -191,10 +204,13 @@ public static class Spark
         {
             cmd.SetComputeTextureParam(shader, kernel, "_Src", source);
         }
+
         cmd.SetComputeTextureParam(shader, kernel, "_Dst", rt);
-        cmd.SetComputeIntParams(shader, "_SrcSize", width, height);
+        cmd.SetComputeIntParams(shader, "_SrcSizeMip", width, height, sourceMip);
         cmd.DispatchCompute(shader, kernel, groupsX, groupsY, 1);
-        cmd.CopyTexture(rt, 0, 0, 0, 0, blockW, blockH, destination, 0, destMip, 0, 0);
+
+        if (needsOutputCopy)
+            cmd.CopyTexture(rt, 0, 0, 0, 0, blockW, blockH, destination, 0, destMip, 0, 0);
 
         if (needsScratch)
             cmd.ReleaseTemporaryRT(s_srcMipCopyId);
@@ -239,68 +255,6 @@ public static class Spark
         }
     }
 
-    // ───────────────────────────────────────────────
-    //  GPU timing
-    // ───────────────────────────────────────────────
-
-    const string GpuSampleName = "SparkEncode";
-    static CommandBuffer s_cmd;
-    static Recorder s_gpuRecorder;
-
-    static CommandBuffer GetCommandBuffer()
-    {
-        if (s_cmd == null)
-            s_cmd = new CommandBuffer { name = GpuSampleName };
-        return s_cmd;
-    }
-
-    /// <summary>
-    /// GPU time of the last encode in milliseconds (from GPU timestamp queries).
-    /// Updated one frame after the encode — returns 0 until the first result is available.
-    /// </summary>
-    public static float GpuTimeMs
-    {
-        get
-        {
-            if (s_gpuRecorder == null)
-            {
-                var sampler = Sampler.Get(GpuSampleName);
-                if (sampler.isValid)
-                {
-                    s_gpuRecorder = sampler.GetRecorder();
-                    s_gpuRecorder.enabled = true;
-                }
-            }
-            if (s_gpuRecorder != null && s_gpuRecorder.isValid && s_gpuRecorder.gpuElapsedNanoseconds > 0)
-                return s_gpuRecorder.gpuElapsedNanoseconds / 1_000_000f;
-            return 0f;
-        }
-    }
-
-    /// <summary>
-    /// Preload (warm up) compute shader kernels for the given formats.
-    /// Forces the GPU driver to compile each kernel by issuing a tiny 4x4 dummy dispatch.
-    /// Generic formats are resolved before warmup.
-    /// </summary>
-    public static void Preload(params SparkFormat[] formats)
-    {
-        foreach (var entry in CollectKernels(formats))
-            WarmupKernel(entry.shader, entry.kernel, entry.format);
-    }
-
-    /// <summary>
-    /// Coroutine that preloads compute shader kernels spread across frames (one kernel per frame).
-    /// Use with StartCoroutine(Spark.PreloadAsync(SparkFormat.RGB, SparkFormat.RGBA)).
-    /// </summary>
-    public static IEnumerator PreloadAsync(params SparkFormat[] formats)
-    {
-        foreach (var entry in CollectKernels(formats))
-        {
-            WarmupKernel(entry.shader, entry.kernel, entry.format);
-            yield return null;
-        }
-    }
-
 
     // ───────────────────────────────────────────────
     //  Compute Shaders
@@ -320,7 +274,8 @@ public static class Spark
             || format == SparkFormat.EAC_R;
     }
 
-    static GraphicsFormat GetTemporaryOutputFormat(SparkFormat format)
+    // Only made this public temporarily for the benchmark mode.
+    public static GraphicsFormat GetTemporaryOutputFormat(SparkFormat format)
     {
         return IsSmallBlockFormat(format)
             ? ((SystemInfo.graphicsDeviceType == GraphicsDeviceType.OpenGLES3) ? GraphicsFormat.R16G16B16A16_UInt : GraphicsFormat.R32G32_UInt)
@@ -378,8 +333,32 @@ public static class Spark
 
 
     // ───────────────────────────────────────────────
-    //  Preload Helpers
+    //  Kernel Preloading
     // ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Preload (warm up) compute shader kernels for the given formats.
+    /// Forces the GPU driver to compile each kernel by issuing a tiny 4x4 dummy dispatch.
+    /// Generic formats are resolved before warmup.
+    /// </summary>
+    public static void Preload(params SparkFormat[] formats)
+    {
+        foreach (var entry in CollectKernels(formats))
+            WarmupKernel(entry.shader, entry.kernel, entry.format);
+    }
+
+    /// <summary>
+    /// Coroutine that preloads compute shader kernels spread across frames (one kernel per frame).
+    /// Use with StartCoroutine(Spark.PreloadAsync(SparkFormat.RGB, SparkFormat.RGBA)).
+    /// </summary>
+    public static IEnumerator PreloadAsync(params SparkFormat[] formats)
+    {
+        foreach (var entry in CollectKernels(formats))
+        {
+            WarmupKernel(entry.shader, entry.kernel, entry.format);
+            yield return null;
+        }
+    }
 
     struct KernelEntry
     {
@@ -458,7 +437,8 @@ public static class Spark
             filterMode        = FilterMode.Point,
             enableRandomWrite = true,
         };
-        cached.Create();
+        bool ok = cached.Create();
+        //Debug.Log($"[Spark] GetOrCreateRT: {blockW}x{blockH} fmt={outputFmt} (int={(int)outputFmt}) randomWrite=true -> Create()={ok}");
 
         if (large) s_cachedLargeRT = cached;
         else       s_cachedSmallRT = cached;
@@ -498,7 +478,7 @@ public static class Spark
         s_resolvedR    = PickFirstSupported(SparkFormat.BC4_R,    SparkFormat.EAC_R);
         s_resolvedRG   = PickFirstSupported(SparkFormat.BC5_RG,   SparkFormat.EAC_RG);
         s_resolvedRGB  = PickFirstSupported(SparkFormat.BC7_RGB,  SparkFormat.ASTC_4x4_RGB, SparkFormat.BC1_RGB, SparkFormat.ETC2_RGB);
-        s_resolvedRGBA = PickFirstSupported(SparkFormat.BC7_RGBA, SparkFormat.ASTC_4x4_RGBA);
+        s_resolvedRGBA = PickFirstSupported(SparkFormat.BC7_RGBA, SparkFormat.ASTC_4x4_RGBA); // SparkFormat.BC5_RGBA, SparkFormat.ETC2_RGBA);
         s_formatsResolved = true;
     }
 
@@ -507,11 +487,13 @@ public static class Spark
         foreach (var fmt in candidates)
             if (IsFormatSupported(fmt))
                 return fmt;
-        // Fallback to first candidate even if unsupported — EncodeTexture will
-        // produce a diagnostic error via Graphics.CopyTexture if truly unusable.
+        // Fallback to first candidate even if unsupported.
         return candidates[0];
     }
 
+    /// <summary>
+    /// Resolve a generic format (R, RG, RGB, RGBA) to the first supported format.
+    /// </summary>
     public static SparkFormat ResolveFormat(SparkFormat format)
     {
         switch (format)
