@@ -87,12 +87,12 @@ public static class Spark
     /// <param name="source">Source texture. If the source has a mip chain, the generated texture also has mips.</param>
     /// <param name="format">Target compressed format (concrete or generic).</param>
     /// <param name="srgb">If true, the output texture uses an sRGB format.</param>
-    public static Texture2D EncodeTexture(Texture source, SparkFormat format, bool srgb = false)
+    public static Texture2D EncodeTexture(Texture source, SparkFormat format, bool srgb = false, bool mips = true, bool preferLowQuality = false)
     {
-        format = ResolveFormat(format);
+        format = ResolveFormat(format, preferLowQuality);
 
         // Do not encode mips smaller than 4 pixels per side.
-        int targetMipCount = ComputeMipCount(source.width, source.height);
+        int targetMipCount = mips ? ComputeMipCount(source.width, source.height) : 1;
         int mipCount = Math.Min(source.mipmapCount, targetMipCount);
 
         GraphicsFormat compressedFmt = GetCompressedFormat(format, srgb);
@@ -147,19 +147,18 @@ public static class Spark
         if (destination == null)
             throw new ArgumentNullException(nameof(destination));
 
-        format = ResolveFormat(format);
-
-        int width  = Math.Max(1, source.width  >> sourceMip);
-        int height = Math.Max(1, source.height >> sourceMip);
-
         // Resolve shader and kernel.
         ComputeShader shader = Shader;
         if (shader == null)
             throw new InvalidOperationException($"Could not load compute shader. Make sure SparkUnity is in a Resources folder.");
 
+        format = ResolveFormat(format);
+
         string kernelName = GetKernelName(format);
         int kernel = shader.FindKernel(kernelName);
 
+        int width  = Math.Max(1, source.width  >> sourceMip);
+        int height = Math.Max(1, source.height >> sourceMip);
         int blockW = (width  + 3) / 4;
         int blockH = (height + 3) / 4;
 
@@ -439,6 +438,7 @@ public static class Spark
     static SparkFormat s_resolvedR;
     static SparkFormat s_resolvedRG;
     static SparkFormat s_resolvedRGB;
+    static SparkFormat s_resolvedRGBLowQuality;
     static SparkFormat s_resolvedRGBA;
     static bool        s_formatsResolved;
 
@@ -462,6 +462,7 @@ public static class Spark
         s_resolvedR    = PickFirstSupported(SparkFormat.BC4_R,    SparkFormat.EAC_R);
         s_resolvedRG   = PickFirstSupported(SparkFormat.BC5_RG,   SparkFormat.EAC_RG);
         s_resolvedRGB  = PickFirstSupported(SparkFormat.BC7_RGB,  SparkFormat.ASTC_4x4_RGB, SparkFormat.BC1_RGB, SparkFormat.ETC2_RGB);
+        s_resolvedRGBLowQuality = PickFirstSupported(SparkFormat.BC1_RGB, SparkFormat.ETC2_RGB);
         s_resolvedRGBA = PickFirstSupported(SparkFormat.BC7_RGBA, SparkFormat.ASTC_4x4_RGBA); // SparkFormat.BC5_RGBA, SparkFormat.ETC2_RGBA);
         s_formatsResolved = true;
     }
@@ -478,14 +479,15 @@ public static class Spark
     /// <summary>
     /// Resolve a generic format (R, RG, RGB, RGBA) to the first supported format.
     /// </summary>
-    public static SparkFormat ResolveFormat(SparkFormat format)
+    public static SparkFormat ResolveFormat(SparkFormat format, bool preferLowQuality = false)
     {
+        EnsureFormatsResolved();
         switch (format)
         {
-            case SparkFormat.R:    EnsureFormatsResolved(); return s_resolvedR;
-            case SparkFormat.RG:   EnsureFormatsResolved(); return s_resolvedRG;
-            case SparkFormat.RGB:  EnsureFormatsResolved(); return s_resolvedRGB;
-            case SparkFormat.RGBA: EnsureFormatsResolved(); return s_resolvedRGBA;
+            case SparkFormat.R:    return s_resolvedR;
+            case SparkFormat.RG:   return s_resolvedRG;
+            case SparkFormat.RGB:  return preferLowQuality ? s_resolvedRGBLowQuality : s_resolvedRGB;
+            case SparkFormat.RGBA: return s_resolvedRGBA;
             default: return format;
         }
     }
