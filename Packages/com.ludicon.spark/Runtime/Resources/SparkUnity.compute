@@ -67,63 +67,77 @@
 
 #endif
 
-#if SPARK_FULL_VERSION
+// //#if SPARK_FULL_VERSION || 1
 
-    // Gate SPK_ENABLE_F16 directly on SHADER_API_* so the pragma scanner sees the same condition.
-    #if SHADER_API_GLES3 || SHADER_API_D3D11
-        #define SPK_ENABLE_F16 0
-        #define SPK_ENABLE_F16x2 0
-    #elif SHADER_API_METAL
-        #define SPK_ENABLE_F16 1
-        #define SPK_ENABLE_F16x2 1
-    #elif (SHADER_API_VULKAN && SHADER_API_MOBILE) || SHADER_API_METAL
-        // Vulkan on Mobile always supports fp16 (at least on the devices we care about).
-        // Metal always supports fp16.
-        #define SPK_ENABLE_F16 1
-        #define SPK_ENABLE_F16x2 1
-    #elif SHADER_API_VULKAN
-        // On Desktop Vulkan, compile both variants.
-        #pragma multi_compile _ UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
-        #define SPK_ENABLE_F16 REAL_IS_HALF
-        #define SPK_ENABLE_F16x2 REAL_IS_HALF
-    #elif SHADER_API_SWITCH || SHADER_API_SWITCH2
-        // Both Switch targets support fp16.
-        #define SPK_ENABLE_F16 1
-        #define SPK_ENABLE_F16x2 1
-    #elif SHADER_API_PS5
-        // PS5 always supports fp16.
-        #define SPK_ENABLE_F16 1
-        #define SPK_ENABLE_F16x2 1
-    #elif SHADER_API_PS4
-        // PS4 Pro support fp16, but PS4 does not. Use multicompile to support both.
-        #pragma multi_compile _ UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
-        #define SPK_ENABLE_F16 REAL_IS_HALF
-        #define SPK_ENABLE_F16x2 REAL_IS_HALF
-    #elif SHADER_API_XBOXONE || SHADER_API_GAMECORE_XBOXONE
-        #define SPK_ENABLE_F16 0
-        #define SPK_ENABLE_F16x2 0
-    #elif SHADER_API_GAMECORE_SCARLETT
-        // Xbox Series S / Series X support fp16.
-        #define SPK_ENABLE_F16 1
-        #define SPK_ENABLE_F16x2 1
-    #elif SHADER_API_WEBGPU
-        // WebGPU supports fp16, but does not support int16 - This would require a different shader variant that we currently don't provide.
-        #define SPK_ENABLE_F16 0
-        #define SPK_ENABLE_F16x2 0
-    #else
-        // On unknown platforms, disable fp16.
-        #define SPK_ENABLE_F16 0
-        #define SPK_ENABLE_F16x2 0
-    #endif
+//     // Gate SPK_ENABLE_F16 directly on SHADER_API_* so the pragma scanner sees the same condition.
+//     #if SHADER_API_GLES3
+//         #define SPK_ENABLE_F16 0
+//         #define SPK_ENABLE_F16x2 0
+//     #elif SHADER_API_D3D11
+//         #define SPK_ENABLE_F16 0
+//         #define SPK_ENABLE_F16x2 0
+//     #elif SHADER_API_D3D12
+//         #define SPK_ENABLE_F16 0
+//         #define SPK_ENABLE_F16x2 0
+//     #elif SHADER_API_METAL
+//         // Metal always supports fp16.
+//         #define SPK_ENABLE_F16 1
+//         #define SPK_ENABLE_F16x2 0
+//     #elif SHADER_API_VULKAN
+//         #pragma use_dxc
+//         #pragma target 6.2
+//         #pragma multi_compile _ UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
+//         #define SPK_ENABLE_F16 UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
+//         #define SPK_ENABLE_F16x2 0//UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
+//     #elif SHADER_API_SWITCH || SHADER_API_SWITCH2
+//         // Both Switch targets support fp16.
+//         #define SPK_ENABLE_F16 1
+//         #define SPK_ENABLE_F16x2 1
+//     #elif SHADER_API_PS5
+//         // PS5 always supports fp16.
+//         #define SPK_ENABLE_F16 1
+//         #define SPK_ENABLE_F16x2 1
+//     #elif SHADER_API_PS4
+//         // PS4 Pro support fp16, but PS4 does not. Use multicompile to support both.
+//         #pragma multi_compile _ UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
+//         #define SPK_ENABLE_F16 REAL_IS_HALF
+//         #define SPK_ENABLE_F16x2 REAL_IS_HALF
+//     #elif SHADER_API_XBOXONE || SHADER_API_GAMECORE_XBOXONE
+//         #define SPK_ENABLE_F16 0
+//         #define SPK_ENABLE_F16x2 0
+//     #elif SHADER_API_GAMECORE_SCARLETT
+//         // Xbox Series S / Series X support fp16.
+//         #define SPK_ENABLE_F16 1
+//         #define SPK_ENABLE_F16x2 1
+//     #elif SHADER_API_WEBGPU
+//         // WebGPU supports fp16, but does not support int16 - This would require a different shader variant that we currently don't provide.
+//         #define SPK_ENABLE_F16 0
+//         #define SPK_ENABLE_F16x2 0
+//     #else
+//         // On unknown platforms, disable fp16.
+//         #define SPK_ENABLE_F16 0
+//         #define SPK_ENABLE_F16x2 0
+//     #endif
 
-#else
+// // #else
 
-    #define SPK_ENABLE_F16 0
-    #define SPK_ENABLE_F16x2 0
+// //     #define SPK_ENABLE_F16 0
+// //     #define SPK_ENABLE_F16x2 0
 
-#endif
+// // #endif
 
-// Using 16x8 for maximum compatibility.
+// These pragmas must be at the top level, you cannot place them inside #if blocks.
+#pragma use_dxc
+#pragma target 6.2
+#pragma multi_compile _ UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
+#pragma multi_compile _ SPK_USE_TEXTURE_GATHER
+
+#define SPK_ENABLE_F16 UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
+#define SPK_ENABLE_F16x2 UNITY_DEVICE_SUPPORTS_NATIVE_16BIT && SPK_USE_TEXTURE_GATHER
+
+
+
+// Using 16x8 for maximum compatibility. Some devices have a limit of 128 threads per block.
 #define SPK_BLOCK_DIM_X 16
 #define SPK_BLOCK_DIM_Y 8
 
@@ -133,6 +147,18 @@
     #define SPK_FLOAT2 half2
     #define SPK_FLOAT3 half3
     #define SPK_FLOAT4 half4
+
+    // Unity does not understand the int16_t/uint16_t types, so remap them to min16 types instead.
+    // Note, when enabling Native16Bit these are translated to native 16-bit types, without that
+    // option these are translated to mediump / RelaxedPrecision.
+    #define int16_t  min16int
+    #define uint16_t min16uint
+    #define int16_t2  min16int2
+    #define uint16_t2 min16uint2
+    #define int16_t3  min16int3
+    #define uint16_t3 min16uint3
+    #define int16_t4  min16int4
+    #define uint16_t4 min16uint4
 #else
     #define SPK_FLOAT  float
     #define SPK_FLOAT2 float2
@@ -140,16 +166,6 @@
     #define SPK_FLOAT4 float4
 #endif
 
-// DXC is required for 16-bit types on Vulkan/Metal. Unity ignores use_dxc on renderers that don't support DXC (D3D11, GLES3),
-#pragma use_dxc
-
-// Keep these gates keyed on SHADER_API_* directly (not on SPK_ENABLE_F16),
-// because Unity's pragma scan does not evaluate user-defined macros.
-// Native 16-bit types require SM 6.2 + the Native16Bit feature requirement.
-//#if (SHADER_API_VULKAN && SHADER_API_MOBILE) || SHADER_API_METAL || (defined(UNITY_DEVICE_SUPPORTS_NATIVE_16BIT_OPERATIONS) && UNITY_DEVICE_SUPPORTS_NATIVE_16BIT_OPERATIONS)
-    #pragma target 6.2
-    #pragma require Native16Bit
-//#endif
 
 #if SHADER_API_METAL
     #pragma disable_fastmath
@@ -407,6 +423,22 @@
         half4 g11 = tex.GATHER(Green, samp, uv, 2, 2); g[6] = g11.xy; g[7] = g11.zw;
     }
 
+    void LoadTexelBlockRG(Texture2D tex, SamplerState samp, uint2 dim, uint2 tid, uint mipLevel, out half2 r[8], out half2 g[8])
+    {
+        float2 size_rcp = rcp(float2(dim));
+        float2 uv = float2(tid * 4u) * size_rcp + size_rcp;
+
+        half4 r00 = tex.GATHER(Red, samp, uv, 0, 0); r[0] = r00.xy; r[1] = r00.zw;
+        half4 r01 = tex.GATHER(Red, samp, uv, 2, 0); r[2] = r01.xy; r[3] = r01.zw;
+        half4 r10 = tex.GATHER(Red, samp, uv, 0, 2); r[4] = r10.xy; r[5] = r10.zw;
+        half4 r11 = tex.GATHER(Red, samp, uv, 2, 2); r[6] = r11.xy; r[7] = r11.zw;
+
+        half4 g00 = tex.GATHER(Green, samp, uv, 0, 0); g[0] = g00.xy; g[1] = g00.zw;
+        half4 g01 = tex.GATHER(Green, samp, uv, 2, 0); g[2] = g01.xy; g[3] = g01.zw;
+        half4 g10 = tex.GATHER(Green, samp, uv, 0, 2); g[4] = g10.xy; g[5] = g10.zw;
+        half4 g11 = tex.GATHER(Green, samp, uv, 2, 2); g[6] = g11.xy; g[7] = g11.zw;
+    }
+
     void LoadTexelBlockRGB(Texture2D tex, SamplerState samp, uint2 dim, uint2 tid, uint mipLevel, out half2 rgb[24])
     {
         float2 size_rcp = rcp(float2(dim));
@@ -474,6 +506,32 @@
     {
         float2 size_rcp = rcp(float2(dim));
         float2 uv = float2(tid * 4u) * size_rcp + size_rcp;
+
+        SPK_FLOAT4 g00 = tex.GATHER(Green, samp, uv, 0, 0);
+        SPK_FLOAT4 g01 = tex.GATHER(Green, samp, uv, 2, 0);
+        SPK_FLOAT4 g10 = tex.GATHER(Green, samp, uv, 0, 2);
+        SPK_FLOAT4 g11 = tex.GATHER(Green, samp, uv, 2, 2);
+
+        g[0]  = g00.w; g[1]  = g00.z;   g[2]  = g01.w; g[3]  = g01.z;
+        g[4]  = g00.x; g[5]  = g00.y;   g[6]  = g01.x; g[7]  = g01.y;
+        g[8]  = g10.w; g[9]  = g10.z;   g[10] = g11.w; g[11] = g11.z;
+        g[12] = g10.x; g[13] = g10.y;   g[14] = g11.x; g[15] = g11.y;
+    }
+
+    void LoadTexelBlockRG(Texture2D tex, SamplerState samp, uint2 dim, uint2 tid, uint mipLevel, out SPK_FLOAT r[16], out SPK_FLOAT g[16])
+    {
+        float2 size_rcp = rcp(float2(dim));
+        float2 uv = float2(tid * 4u) * size_rcp + size_rcp;
+
+        SPK_FLOAT4 r00 = tex.GATHER(Red, samp, uv, 0, 0);
+        SPK_FLOAT4 r01 = tex.GATHER(Red, samp, uv, 2, 0);
+        SPK_FLOAT4 r10 = tex.GATHER(Red, samp, uv, 0, 2);
+        SPK_FLOAT4 r11 = tex.GATHER(Red, samp, uv, 2, 2);
+
+        r[0]  = r00.w; r[1]  = r00.z;   r[2]  = r01.w; r[3]  = r01.z;
+        r[4]  = r00.x; r[5]  = r00.y;   r[6]  = r01.x; r[7]  = r01.y;
+        r[8]  = r10.w; r[9]  = r10.z;   r[10] = r11.w; r[11] = r11.z;
+        r[12] = r10.x; r[13] = r10.y;   r[14] = r11.x; r[15] = r11.y;
 
         SPK_FLOAT4 g00 = tex.GATHER(Green, samp, uv, 0, 0);
         SPK_FLOAT4 g01 = tex.GATHER(Green, samp, uv, 2, 0);
@@ -573,7 +631,175 @@
 
 #if SPK_ENABLE_F16x2
 
-// @@ Fetch and return in Gather order.
+void LoadTexelBlockR(Texture2D tex, SamplerState samp, uint2 dim, uint2 tid, uint mipLevel, out half2 r[8])
+{
+    int3 base_coord = int3(tid * 4u, mipLevel);
+
+    half lin[16];
+    lin[ 0] = tex.Load(base_coord, int2(0, 0)).r;
+    lin[ 1] = tex.Load(base_coord, int2(1, 0)).r;
+    lin[ 2] = tex.Load(base_coord, int2(2, 0)).r;
+    lin[ 3] = tex.Load(base_coord, int2(3, 0)).r;
+    lin[ 4] = tex.Load(base_coord, int2(0, 1)).r;
+    lin[ 5] = tex.Load(base_coord, int2(1, 1)).r;
+    lin[ 6] = tex.Load(base_coord, int2(2, 1)).r;
+    lin[ 7] = tex.Load(base_coord, int2(3, 1)).r;
+    lin[ 8] = tex.Load(base_coord, int2(0, 2)).r;
+    lin[ 9] = tex.Load(base_coord, int2(1, 2)).r;
+    lin[10] = tex.Load(base_coord, int2(2, 2)).r;
+    lin[11] = tex.Load(base_coord, int2(3, 2)).r;
+    lin[12] = tex.Load(base_coord, int2(0, 3)).r;
+    lin[13] = tex.Load(base_coord, int2(1, 3)).r;
+    lin[14] = tex.Load(base_coord, int2(2, 3)).r;
+    lin[15] = tex.Load(base_coord, int2(3, 3)).r;
+
+    r[0] = half2(lin[ 4], lin[ 5]);  r[1] = half2(lin[ 1], lin[ 0]);
+    r[2] = half2(lin[ 6], lin[ 7]);  r[3] = half2(lin[ 3], lin[ 2]);
+    r[4] = half2(lin[12], lin[13]);  r[5] = half2(lin[ 9], lin[ 8]);
+    r[6] = half2(lin[14], lin[15]);  r[7] = half2(lin[11], lin[10]);
+}
+
+void LoadTexelBlockG(Texture2D tex, SamplerState samp, uint2 dim, uint2 tid, uint mipLevel, out half2 g[8])
+{
+    int3 base_coord = int3(tid * 4u, mipLevel);
+
+    half lin[16];
+    lin[ 0] = tex.Load(base_coord, int2(0, 0)).g;
+    lin[ 1] = tex.Load(base_coord, int2(1, 0)).g;
+    lin[ 2] = tex.Load(base_coord, int2(2, 0)).g;
+    lin[ 3] = tex.Load(base_coord, int2(3, 0)).g;
+    lin[ 4] = tex.Load(base_coord, int2(0, 1)).g;
+    lin[ 5] = tex.Load(base_coord, int2(1, 1)).g;
+    lin[ 6] = tex.Load(base_coord, int2(2, 1)).g;
+    lin[ 7] = tex.Load(base_coord, int2(3, 1)).g;
+    lin[ 8] = tex.Load(base_coord, int2(0, 2)).g;
+    lin[ 9] = tex.Load(base_coord, int2(1, 2)).g;
+    lin[10] = tex.Load(base_coord, int2(2, 2)).g;
+    lin[11] = tex.Load(base_coord, int2(3, 2)).g;
+    lin[12] = tex.Load(base_coord, int2(0, 3)).g;
+    lin[13] = tex.Load(base_coord, int2(1, 3)).g;
+    lin[14] = tex.Load(base_coord, int2(2, 3)).g;
+    lin[15] = tex.Load(base_coord, int2(3, 3)).g;
+
+    g[0] = half2(lin[ 4], lin[ 5]);  g[1] = half2(lin[ 1], lin[ 0]);
+    g[2] = half2(lin[ 6], lin[ 7]);  g[3] = half2(lin[ 3], lin[ 2]);
+    g[4] = half2(lin[12], lin[13]);  g[5] = half2(lin[ 9], lin[ 8]);
+    g[6] = half2(lin[14], lin[15]);  g[7] = half2(lin[11], lin[10]);
+}
+
+void LoadTexelBlockRG(Texture2D tex, SamplerState samp, uint2 dim, uint2 tid, uint mipLevel, out half2 r[8], out half2 g[8])
+{
+    int3 base_coord = int3(tid * 4u, mipLevel);
+
+    half2 lin[16];
+    lin[ 0] = tex.Load(base_coord, int2(0, 0)).rg;
+    lin[ 1] = tex.Load(base_coord, int2(1, 0)).rg;
+    lin[ 2] = tex.Load(base_coord, int2(2, 0)).rg;
+    lin[ 3] = tex.Load(base_coord, int2(3, 0)).rg;
+    lin[ 4] = tex.Load(base_coord, int2(0, 1)).rg;
+    lin[ 5] = tex.Load(base_coord, int2(1, 1)).rg;
+    lin[ 6] = tex.Load(base_coord, int2(2, 1)).rg;
+    lin[ 7] = tex.Load(base_coord, int2(3, 1)).rg;
+    lin[ 8] = tex.Load(base_coord, int2(0, 2)).rg;
+    lin[ 9] = tex.Load(base_coord, int2(1, 2)).rg;
+    lin[10] = tex.Load(base_coord, int2(2, 2)).rg;
+    lin[11] = tex.Load(base_coord, int2(3, 2)).rg;
+    lin[12] = tex.Load(base_coord, int2(0, 3)).rg;
+    lin[13] = tex.Load(base_coord, int2(1, 3)).rg;
+    lin[14] = tex.Load(base_coord, int2(2, 3)).rg;
+    lin[15] = tex.Load(base_coord, int2(3, 3)).rg;
+
+    r[0] = half2(lin[ 4].r, lin[ 5].r);  r[1] = half2(lin[ 1].r, lin[ 0].r);
+    r[2] = half2(lin[ 6].r, lin[ 7].r);  r[3] = half2(lin[ 3].r, lin[ 2].r);
+    r[4] = half2(lin[12].r, lin[13].r);  r[5] = half2(lin[ 9].r, lin[ 8].r);
+    r[6] = half2(lin[14].r, lin[15].r);  r[7] = half2(lin[11].r, lin[10].r);
+
+    g[0] = half2(lin[ 4].g, lin[ 5].g);  g[1] = half2(lin[ 1].g, lin[ 0].g);
+    g[2] = half2(lin[ 6].g, lin[ 7].g);  g[3] = half2(lin[ 3].g, lin[ 2].g);
+    g[4] = half2(lin[12].g, lin[13].g);  g[5] = half2(lin[ 9].g, lin[ 8].g);
+    g[6] = half2(lin[14].g, lin[15].g);  g[7] = half2(lin[11].g, lin[10].g);
+}
+
+void LoadTexelBlockRGB(Texture2D tex, SamplerState samp, uint2 dim, uint2 tid, uint mipLevel, out half2 rgb[24])
+{
+    int3 base_coord = int3(tid * 4u, mipLevel);
+
+    half3 lin[16];
+    lin[ 0] = tex.Load(base_coord, int2(0, 0)).rgb;
+    lin[ 1] = tex.Load(base_coord, int2(1, 0)).rgb;
+    lin[ 2] = tex.Load(base_coord, int2(2, 0)).rgb;
+    lin[ 3] = tex.Load(base_coord, int2(3, 0)).rgb;
+    lin[ 4] = tex.Load(base_coord, int2(0, 1)).rgb;
+    lin[ 5] = tex.Load(base_coord, int2(1, 1)).rgb;
+    lin[ 6] = tex.Load(base_coord, int2(2, 1)).rgb;
+    lin[ 7] = tex.Load(base_coord, int2(3, 1)).rgb;
+    lin[ 8] = tex.Load(base_coord, int2(0, 2)).rgb;
+    lin[ 9] = tex.Load(base_coord, int2(1, 2)).rgb;
+    lin[10] = tex.Load(base_coord, int2(2, 2)).rgb;
+    lin[11] = tex.Load(base_coord, int2(3, 2)).rgb;
+    lin[12] = tex.Load(base_coord, int2(0, 3)).rgb;
+    lin[13] = tex.Load(base_coord, int2(1, 3)).rgb;
+    lin[14] = tex.Load(base_coord, int2(2, 3)).rgb;
+    lin[15] = tex.Load(base_coord, int2(3, 3)).rgb;
+
+    rgb[ 0] = half2(lin[ 4].r, lin[ 5].r);  rgb[ 1] = half2(lin[ 1].r, lin[ 0].r);
+    rgb[ 2] = half2(lin[ 6].r, lin[ 7].r);  rgb[ 3] = half2(lin[ 3].r, lin[ 2].r);
+    rgb[ 4] = half2(lin[12].r, lin[13].r);  rgb[ 5] = half2(lin[ 9].r, lin[ 8].r);
+    rgb[ 6] = half2(lin[14].r, lin[15].r);  rgb[ 7] = half2(lin[11].r, lin[10].r);
+
+    rgb[ 8] = half2(lin[ 4].g, lin[ 5].g);  rgb[ 9] = half2(lin[ 1].g, lin[ 0].g);
+    rgb[10] = half2(lin[ 6].g, lin[ 7].g);  rgb[11] = half2(lin[ 3].g, lin[ 2].g);
+    rgb[12] = half2(lin[12].g, lin[13].g);  rgb[13] = half2(lin[ 9].g, lin[ 8].g);
+    rgb[14] = half2(lin[14].g, lin[15].g);  rgb[15] = half2(lin[11].g, lin[10].g);
+
+    rgb[16] = half2(lin[ 4].b, lin[ 5].b);  rgb[17] = half2(lin[ 1].b, lin[ 0].b);
+    rgb[18] = half2(lin[ 6].b, lin[ 7].b);  rgb[19] = half2(lin[ 3].b, lin[ 2].b);
+    rgb[20] = half2(lin[12].b, lin[13].b);  rgb[21] = half2(lin[ 9].b, lin[ 8].b);
+    rgb[22] = half2(lin[14].b, lin[15].b);  rgb[23] = half2(lin[11].b, lin[10].b);
+}
+
+void LoadTexelBlockRGBA(Texture2D tex, SamplerState samp, uint2 dim, uint2 tid, uint mipLevel, out half2 rgba[32])
+{
+    int3 base_coord = int3(tid * 4u, mipLevel);
+
+    half4 lin[16];
+    lin[ 0] = tex.Load(base_coord, int2(0, 0));
+    lin[ 1] = tex.Load(base_coord, int2(1, 0));
+    lin[ 2] = tex.Load(base_coord, int2(2, 0));
+    lin[ 3] = tex.Load(base_coord, int2(3, 0));
+    lin[ 4] = tex.Load(base_coord, int2(0, 1));
+    lin[ 5] = tex.Load(base_coord, int2(1, 1));
+    lin[ 6] = tex.Load(base_coord, int2(2, 1));
+    lin[ 7] = tex.Load(base_coord, int2(3, 1));
+    lin[ 8] = tex.Load(base_coord, int2(0, 2));
+    lin[ 9] = tex.Load(base_coord, int2(1, 2));
+    lin[10] = tex.Load(base_coord, int2(2, 2));
+    lin[11] = tex.Load(base_coord, int2(3, 2));
+    lin[12] = tex.Load(base_coord, int2(0, 3));
+    lin[13] = tex.Load(base_coord, int2(1, 3));
+    lin[14] = tex.Load(base_coord, int2(2, 3));
+    lin[15] = tex.Load(base_coord, int2(3, 3));
+
+    rgba[ 0] = half2(lin[ 4].r, lin[ 5].r);  rgba[ 1] = half2(lin[ 1].r, lin[ 0].r);
+    rgba[ 2] = half2(lin[ 6].r, lin[ 7].r);  rgba[ 3] = half2(lin[ 3].r, lin[ 2].r);
+    rgba[ 4] = half2(lin[12].r, lin[13].r);  rgba[ 5] = half2(lin[ 9].r, lin[ 8].r);
+    rgba[ 6] = half2(lin[14].r, lin[15].r);  rgba[ 7] = half2(lin[11].r, lin[10].r);
+
+    rgba[ 8] = half2(lin[ 4].g, lin[ 5].g);  rgba[ 9] = half2(lin[ 1].g, lin[ 0].g);
+    rgba[10] = half2(lin[ 6].g, lin[ 7].g);  rgba[11] = half2(lin[ 3].g, lin[ 2].g);
+    rgba[12] = half2(lin[12].g, lin[13].g);  rgba[13] = half2(lin[ 9].g, lin[ 8].g);
+    rgba[14] = half2(lin[14].g, lin[15].g);  rgba[15] = half2(lin[11].g, lin[10].g);
+
+    rgba[16] = half2(lin[ 4].b, lin[ 5].b);  rgba[17] = half2(lin[ 1].b, lin[ 0].b);
+    rgba[18] = half2(lin[ 6].b, lin[ 7].b);  rgba[19] = half2(lin[ 3].b, lin[ 2].b);
+    rgba[20] = half2(lin[12].b, lin[13].b);  rgba[21] = half2(lin[ 9].b, lin[ 8].b);
+    rgba[22] = half2(lin[14].b, lin[15].b);  rgba[23] = half2(lin[11].b, lin[10].b);
+
+    rgba[24] = half2(lin[ 4].a, lin[ 5].a);  rgba[25] = half2(lin[ 1].a, lin[ 0].a);
+    rgba[26] = half2(lin[ 6].a, lin[ 7].a);  rgba[27] = half2(lin[ 3].a, lin[ 2].a);
+    rgba[28] = half2(lin[12].a, lin[13].a);  rgba[29] = half2(lin[ 9].a, lin[ 8].a);
+    rgba[30] = half2(lin[14].a, lin[15].a);  rgba[31] = half2(lin[11].a, lin[10].a);
+}
 
 #else // SPK_ENABLE_F16x2
 
@@ -628,7 +854,7 @@ void LoadTexelBlockRG(Texture2D tex, SamplerState samp, uint2 dim, uint2 tid, ui
     rg[14] = tex.Load(base_coord, int2(2, 3)).g;
     rg[15] = tex.Load(base_coord, int2(3, 3)).g;
 
-    for (int i = 0; i < 16; i++) {
+    [unroll] for (int i = 0; i < 16; i++) {
         r[i] = rg[i].x;
         g[i] = rg[i].y;
     }

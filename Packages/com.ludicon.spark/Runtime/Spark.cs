@@ -167,8 +167,7 @@ public static class Spark
         // so a mip loop (largest -> smallest) reuses the same RT for every level.
         GraphicsFormat outputFmt = GetTemporaryOutputFormat(format);
 
-        //Debug.Log($"[Spark]   mip={sourceMip} {width}x{height} blocks={blockW}x{blockH} | kernel='{kernelName}' index={kernel} | outputFmt={outputFmt} (Sample={SystemInfo.IsFormatSupported(outputFmt, GraphicsFormatUsage.Sample)} LoadStore={SystemInfo.IsFormatSupported(outputFmt, GraphicsFormatUsage.LoadStore)})");
-
+        // We only skip the output copy if the destination happens to be a UINT texture of the right size, instead of a block compressed texture.
         bool needsOutputCopy = destination.graphicsFormat != outputFmt || destination.width < blockW || destination.height < blockH;
 
         var rt = needsOutputCopy ? GetOrCreateRT(blockW, blockH, outputFmt) : destination;
@@ -176,47 +175,18 @@ public static class Spark
         int groupsX = (blockW + 15) / 16;
         int groupsY = (blockH + 7) / 8;
 
-        // This really sucks. It appears that Unity doesn't have a way to bind a specific mip level
-        // of a Texture2D or RenderTexture as an SRV; the mipLevel parameter only affects UAV
-        // bindings (RWTexture2D). So for sourceMip > 0 we copy that mip into a single-level scratch
-        // RT and bind that. Another alternative would be to use a shader that uses textureFetch()
-        // instead of gather(), but that would require an additional shader variant..
-        bool needsScratch = false;//sourceMip > 0;
-        if (needsScratch)
-        {
-            // This fails on Android because the value returned by source.graphicsFormat (88) appears
-            // to be undocumented/unsupported, and GetTemporaryRT fails. When this happens, try to
-            // find a valid format.
-            GraphicsFormat scratchFmt = source.graphicsFormat;
-            if (!SystemInfo.IsFormatSupported(scratchFmt, GraphicsFormatUsage.Render))
-            {
-                if (source is Texture2D tex2d)
-                    scratchFmt = GraphicsFormatUtility.GetGraphicsFormat(tex2d.format, isSRGB: false);
-                if (!SystemInfo.IsFormatSupported(scratchFmt, GraphicsFormatUsage.Render))
-                    scratchFmt = GraphicsFormat.R8G8B8A8_UNorm;
-            }
+        // Unity can't bind a specific mip level of a Texture2D as an SRV, so gather4, which has no mip parameter, only works on mip 0. For higher mips we flip
+        // SPK_USE_TEXTURE_GATHER off; the !gather variant uses tex.Load(int3(xy, mipLevel)) and reads the right mip directly without a scratch copy.
+        cmd.SetKeyword(shader, s_kwUseGather, sourceMip == 0);
 
-            cmd.GetTemporaryRT(s_srcMipCopyId, width, height, 0, FilterMode.Point, scratchFmt, 1);
-            cmd.CopyTexture(source, 0, sourceMip, s_srcMipCopyId, 0, 0);
-            cmd.SetComputeTextureParam(shader, kernel, "_Src", s_srcMipCopyId);
-        }
-        else
-        {
-            cmd.SetComputeTextureParam(shader, kernel, "_Src", source);
-        }
-
+        cmd.SetComputeTextureParam(shader, kernel, "_Src", source);
         cmd.SetComputeTextureParam(shader, kernel, "_Dst", rt);
         cmd.SetComputeIntParams(shader, "_SrcSizeMip", width, height, sourceMip);
         cmd.DispatchCompute(shader, kernel, groupsX, groupsY, 1);
 
         if (needsOutputCopy)
             cmd.CopyTexture(rt, 0, 0, 0, 0, blockW, blockH, destination, 0, destMip, 0, 0);
-
-        if (needsScratch)
-            cmd.ReleaseTemporaryRT(s_srcMipCopyId);
     }
-
-    static readonly int s_srcMipCopyId = UnityEngine.Shader.PropertyToID("_SparkSrcMipCopy");
 
     /// <summary>
     /// Returns true if the given format is supported on the current platform.
@@ -261,9 +231,21 @@ public static class Spark
     // ───────────────────────────────────────────────
 
     static ComputeShader s_Shader;
+    static LocalKeyword s_kwUseGather;
 
-    static ComputeShader Shader =>
-        s_Shader != null ? s_Shader : (s_Shader = Resources.Load<ComputeShader>("SparkUnity"));
+    static ComputeShader Shader
+    {
+        get
+        {
+            if (s_Shader == null)
+            {
+                s_Shader = Resources.Load<ComputeShader>("SparkUnity");
+                if (s_Shader != null)
+                    s_kwUseGather = new LocalKeyword(s_Shader, "SPK_USE_TEXTURE_GATHER");
+            }
+            return s_Shader;
+        }
+    }
 
     // Formats whose encoded block fits in uint2 (8 bytes). Everything else uses uint4 (16 bytes).
     static bool IsSmallBlockFormat(SparkFormat format)
