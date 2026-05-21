@@ -68,10 +68,11 @@ public class PanZoomView
         //     fitScale = max(texW/screenW, texH/screenH) makes the limiting axis show exactly
         //     one texture extent; 2× fitScale shows two.
         int screenMax = Mathf.Max(1, Mathf.Max(screenW, screenH));
-        float minScale = 4f / screenMax;
+        int screenMin = Mathf.Max(1, Mathf.Min(screenW, screenH));
+
+        float minScale = 8f / screenMin;
         float fitScale = Mathf.Max((float)texW / Mathf.Max(1, screenW), (float)texH / Mathf.Max(1, screenH));
-        // Mathf.Max guards against degenerate cases (tiny texture, big screen) where 2× fit < min.
-        float maxScale = Mathf.Max(2f * fitScale, minScale);
+        float maxScale = Mathf.Max(2f * fitScale, minScale); // Mathf.Max guards against degenerate cases (tiny texture, big screen) where 2× fit < min.
         targetScale = Mathf.Clamp(targetScale, minScale, maxScale);
 
         float oldScale = scale;
