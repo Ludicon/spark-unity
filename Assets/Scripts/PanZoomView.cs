@@ -1,21 +1,19 @@
 using UnityEngine;
 
-/// <summary>
-/// 2D pan + zoom view transform with a pivot-relative zoom. Ported from the
-/// view math in spark/examples/example.cpp so behavior matches the Android/desktop
-/// Spark demos. Maintains a smooth target_scale → scale lerp so zoom feels animated.
-///
-/// Coordinate model (matching the reference):
-///   * pivot and offset are in pixels, centered on the screen (origin at the
-///     screen's center).
-///   * scale is "texture texels per screen pixel" — smaller means more zoomed in
-///     (one texel covers more screen pixels). fitScale = max(texW/screenW, texH/screenH).
-///   * When a wheel/pinch event happens, set target_scale and pivot. Tick() lerps
-///     scale toward target_scale and adjusts offset so the pivot's texcoord is fixed.
-///
-/// To display the result, call ComputeTexCoords(screenSize, texSize, out uvOffset, out uvScale)
-/// and use GUI.DrawTextureWithTexCoords(screenRect, tex, new Rect(uvOffset, uvScale)).
-/// </summary>
+// 2D pan + zoom view transform with a pivot-relative zoom. Ported from the
+// view math in spark/examples/example.cpp so behavior matches the Android/desktop
+// Spark demos. Maintains a smooth target_scale → scale lerp so zoom feels animated.
+//
+// Coordinate model (matching the reference):
+//   * pivot and offset are in pixels, centered on the screen (origin at the
+//     screen's center).
+//   * scale is "texture texels per screen pixel" — smaller means more zoomed in
+//     (one texel covers more screen pixels). fitScale = max(texW/screenW, texH/screenH).
+//   * When a wheel/pinch event happens, set target_scale and pivot. Tick() lerps
+//     scale toward target_scale and adjusts offset so the pivot's texcoord is fixed.
+//
+// To display the result, call ComputeTexCoords(screenSize, texSize, out uvOffset, out uvScale)
+// and use GUI.DrawTextureWithTexCoords(screenRect, tex, new Rect(uvOffset, uvScale)).
 public class PanZoomView
 {
     public Vector2 pivot;       // Pixel coords, centered on screen.
@@ -23,7 +21,7 @@ public class PanZoomView
     public float   targetScale;
     public float   scale;
 
-    /// <summary>Resets the view so the texture fits the screen (max of either axis ratio).</summary>
+    // Resets the view so the texture fits the screen (max of either axis ratio).
     public void Reset(int screenW, int screenH, int texW, int texH)
     {
         float s = Mathf.Max((float)texW / screenW, (float)texH / screenH);
@@ -34,7 +32,7 @@ public class PanZoomView
         targetScale = s;
     }
 
-    /// <summary>Drag the view by (dx, dy) pixels. Positive dx moves the image right.</summary>
+    // Drag the view by (dx, dy) pixels. Positive dx moves the image right.
     public void Pan(float dx, float dy)
     {
         // Reference subtracts mouse delta from offset (mouse-following pan).
@@ -42,11 +40,9 @@ public class PanZoomView
         offset.y -= dy;
     }
 
-    /// <summary>
-    /// Adjust the target scale by a multiplicative factor. zoomDelta > 0 zooms in.
-    /// pivotX/Y are mouse pixel coordinates (top-left origin); they're converted to
-    /// centered coordinates internally.
-    /// </summary>
+    // Adjust the target scale by a multiplicative factor. zoomDelta > 0 zooms in.
+    // pivotX/Y are mouse pixel coordinates (top-left origin); they're converted to
+    // centered coordinates internally.
     public void Zoom(float zoomDelta, float pivotXScreen, float pivotYScreen, int screenW, int screenH)
     {
         targetScale = Mathf.Pow(2f, Mathf.Log(targetScale, 2f) + zoomDelta);
@@ -54,9 +50,7 @@ public class PanZoomView
         pivot.y = pivotYScreen - 0.5f * screenH;
     }
 
-    /// <summary>
-    /// Multiplicative scale change (e.g. from pinch gesture). Use ratio > 1 for zoom-in.
-    /// </summary>
+    // Multiplicative scale change (e.g. from pinch gesture). Use ratio > 1 for zoom-in.
     public void Pinch(float ratio, float pivotXScreen, float pivotYScreen, int screenW, int screenH)
     {
         targetScale *= ratio;
@@ -64,7 +58,7 @@ public class PanZoomView
         pivot.y = pivotYScreen - 0.5f * screenH;
     }
 
-    /// <summary>Lerp scale toward targetScale and reconcile offset so the pivot stays fixed.</summary>
+    // Lerp scale toward targetScale and reconcile offset so the pivot stays fixed.
     public void Tick(float timeDelta, int screenW, int screenH, int texW, int texH)
     {
         // Zoom bounds. scale = texels per screen pixel (smaller = more zoomed in).
@@ -101,16 +95,11 @@ public class PanZoomView
         if (offset.y >  ly) offset.y =  ly;
     }
 
-    /// <summary>
-    /// Computes UV offset+scale for sampling the source texture into a full-screen draw.
-    /// Mirrors the push-constant math in example.cpp / demo.frag.glsl.
-    /// </summary>
+    // Computes UV offset+scale for sampling the source texture into a full-screen draw.
     public void ComputeTexCoords(int screenW, int screenH, int texW, int texH, out Vector2 uvOffset, out Vector2 uvScale)
     {
-        // push_constants[0..1]: uv offset
         uvOffset.x = (offset.x - 0.5f * screenW + 0.5f * texW / scale) * scale / texW;
         uvOffset.y = (offset.y - 0.5f * screenH + 0.5f * texH / scale) * scale / texH;
-        // push_constants[2..3]: uv scale (per-screen-pixel uv delta)
         uvScale.x = scale / texW;
         uvScale.y = scale / texH;
     }

@@ -1,15 +1,13 @@
 using UnityEngine;
 
-/// <summary>
-/// Per-mode pan/zoom state + input handling, layered on top of <see cref="PanZoomView"/>.
-/// Modes hold one of these and forward their lifecycle calls (Configure / Tick / HandleInput
-/// / DrawTexture). Encapsulates the input event plumbing, raw-pixel bounds computation,
-/// scroll-wheel zoom, two-finger pinch, and tab-strip gating that used to live in
-/// SlideshowMode.
-/// </summary>
+// Per-mode pan/zoom state + input handling, layered on top of PanZoomView
+// Modes hold one of these and forward their lifecycle calls (Configure / Tick / HandleInput
+// / DrawTexture). Encapsulates the input event plumbing, raw-pixel bounds computation,
+// scroll-wheel zoom, two-finger pinch, and tab-strip gating that used to live in
+// SlideshowMode.
 public class PanZoomController
 {
-    public float wheelZoomStep = 0.5f;
+    public float wheelZoomStep = 0.25f;
 
     readonly PanZoomView _view = new PanZoomView();
     bool _initialized;
@@ -26,21 +24,19 @@ public class PanZoomController
     public Rect DisplayRect => _displayRect;
     public bool IsInitialized => _initialized;
 
-    /// <summary>Mark the view as needing reset on the next Configure call. Call when the
-    /// content changes (e.g. slideshow advances to a new texture).</summary>
+    // Mark the view as needing reset on the next Configure call. Call when the
+    // content changes (e.g. slideshow advances to a new texture).
     public void Invalidate() { _initialized = false; }
-
-    /// <summary>Configure with a mode-area rect in scaled GUI coords; the controller converts
-    /// to raw pixels using the SparkDemo's UI scale factor. Display rect = full mode area.</summary>
+    // Configure with a mode-area rect in scaled GUI coords; the controller converts
+    // to raw pixels using the SparkDemo's UI scale factor. Display rect = full mode area.
     public Rect Configure(Rect bounds, SparkDemo controller, int contentW, int contentH)
     {
         float scale = controller.UiScaleFactor;
         Rect raw = new Rect(bounds.x * scale, bounds.y * scale, bounds.width * scale, bounds.height * scale);
         return Configure(raw, contentW, contentH);
     }
-
-    /// <summary>Configure with an explicit display rect in raw pixels. Use this when the mode
-    /// wants the pan/zoom area to be a sub-rect of bounds (e.g. mipmap's 2:1 fit).</summary>
+    // Configure with an explicit display rect in raw pixels. Use this when the mode
+    // wants the pan/zoom area to be a sub-rect of bounds (e.g. mipmap's 2:1 fit).
     public Rect Configure(Rect displayRect, int contentW, int contentH)
     {
         _displayRect = displayRect;
@@ -54,9 +50,9 @@ public class PanZoomController
         return _displayRect;
     }
 
-    /// <summary>Current pan/zoom UV transform for content of the given natural dimensions.
-    /// <c>uvOff</c> is the UV at the top-left of the display rect; <c>uvScale</c> is UV delta
-    /// per screen pixel (multiply by displayRect.width/height for the full uv range).</summary>
+    // Current pan/zoom UV transform for content of the given natural dimensions.
+    // <c>uvOff</c> is the UV at the top-left of the display rect; <c>uvScale</c> is UV delta
+    // per screen pixel (multiply by displayRect.width/height for the full uv range).
     public void ComputeUV(int contentW, int contentH, out Vector2 uvOff, out Vector2 uvScale)
     {
         int rw = Mathf.Max(1, Mathf.RoundToInt(_displayRect.width));
@@ -64,10 +60,10 @@ public class PanZoomController
         _view.ComputeTexCoords(rw, rh, contentW, contentH, out uvOff, out uvScale);
     }
 
-    /// <summary>Convenience: draw a texture at the display rect with the current pan/zoom
-    /// transform. The texture's wrap mode determines what happens past the edges — Repeat
-    /// tiles, Clamp stretches the edge texels. Reset GUI.matrix locally so the draw happens
-    /// in raw pixel coords.</summary>
+    // Convenience: draw a texture at the display rect with the current pan/zoom
+    // transform. The texture's wrap mode determines what happens past the edges — Repeat
+    // tiles, Clamp stretches the edge texels. Reset GUI.matrix locally so the draw happens
+    // in raw pixel coords.
     public void DrawTexture(Texture texture)
     {
         if (texture == null || !_initialized) return;
@@ -82,10 +78,10 @@ public class PanZoomController
         GUI.matrix = prev;
     }
 
-    /// <summary>Like <see cref="DrawTexture"/> but fills areas outside the texture's [0,1]²
-    /// UV range with <paramref name="borderColor"/> instead of repeating/edge-stretching.
-    /// Implemented by clipping the texture draw to the valid sub-rect and filling the rest
-    /// with a solid color — no custom shader required.</summary>
+    // Like <see cref="DrawTexture"/> but fills areas outside the texture's [0,1]²
+    // UV range with <paramref name="borderColor"/> instead of repeating/edge-stretching.
+    // Implemented by clipping the texture draw to the valid sub-rect and filling the rest
+    // with a solid color — no custom shader required.
     public void DrawTextureClampToBorder(Texture texture, Color borderColor)
     {
         if (texture == null || !_initialized) return;
@@ -141,9 +137,8 @@ public class PanZoomController
         }
 
         GUI.matrix = prevMat;
-    }
 
-    /// <summary>Lerp scale toward target and reconcile offset around the pivot.</summary>
+    // Lerp scale toward target and reconcile offset around the pivot.
     public void Tick(float dt, int contentW, int contentH)
     {
         if (!_initialized || _displayRect.width <= 0f) return;
@@ -153,9 +148,9 @@ public class PanZoomController
                    contentW, contentH);
     }
 
-    /// <summary>Process mouse drag, scroll-wheel zoom, and two-finger pinch. Should be called
-    /// from <c>OnGUIForeground</c> AFTER drawing any buttons so they consume their own clicks
-    /// first.</summary>
+    // Process mouse drag, scroll-wheel zoom, and two-finger pinch. Should be called
+    // from <c>OnGUIForeground</c> AFTER drawing any buttons so they consume their own clicks
+    // first.
     public void HandleInput(SparkDemo controller)
     {
         Event e = Event.current;
@@ -212,7 +207,7 @@ public class PanZoomController
         {
             float pivotX = mouse.x - _displayRect.x;
             float pivotY = _displayRect.height - (mouse.y - _displayRect.y);
-            _view.Zoom(-e.delta.y * wheelZoomStep, pivotX, pivotY, rw, rh);
+            _view.Zoom(e.delta.y * wheelZoomStep, pivotX, pivotY, rw, rh);
             e.Use();
         }
 
@@ -257,14 +252,14 @@ public class PanZoomController
         }
     }
 
-    /// <summary>Snap to 1:1 (one screen pixel per content pixel).</summary>
+    // Snap to 1:1 (one screen pixel per content pixel).
     public void OneToOne()
     {
         _view.targetScale = 1f;
         _view.pivot = Vector2.zero;
     }
 
-    /// <summary>Reset to "fit content into display rect" — same as the initial state.</summary>
+    // Reset to "fit content into display rect" — same as the initial state.
     public void ResetFit(int contentW, int contentH)
     {
         _view.Reset(Mathf.Max(1, Mathf.RoundToInt(_displayRect.width)),
