@@ -13,3 +13,4 @@ Rocks001_1K-PNG_Roughness.png
 rocky_trail_diff_1k.png
 rocky_trail_nor_gl_1k.png
 rocky_trail_rough_1k.png
+paint.png
