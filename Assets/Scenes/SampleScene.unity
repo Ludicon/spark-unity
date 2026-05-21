@@ -399,7 +399,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MipmapMode
   format: 2
-  preferredTextureName: paint
+  sourcePath: Mipmap/paint.png
 --- !u!1 &1227006373
 GameObject:
   m_ObjectHideFlags: 0
