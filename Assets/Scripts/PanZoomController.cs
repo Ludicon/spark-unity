@@ -137,6 +137,7 @@ public class PanZoomController
         }
 
         GUI.matrix = prevMat;
+    }
 
     // Lerp scale toward target and reconcile offset around the pivot.
     public void Tick(float dt, int contentW, int contentH)
