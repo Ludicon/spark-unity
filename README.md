@@ -73,7 +73,7 @@ Spark.ReleaseCache();
 The included `SparkDemo` scene showcases multiple use cases:
 
 - **Slideshow**: Loads textures from `StreamingAssets/` and compresses them on the fly.
-- **Plasma**: Displays a procedural plasma effects and compresses it in real-time.
+- **Plasma**: Displays a procedural plasma effect and compresses it in real-time.
 - **Mipmap**: Loads a texture, generates mipmaps in the GPU and compresses them.
 - **Benchmark**: Measures the compression performance of every format.
 
