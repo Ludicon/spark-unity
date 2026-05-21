@@ -102,6 +102,13 @@ public class SlideshowMode : SparkDemoMode
 
         _detectedFormat = DetectFormat(source.name);
 
+        // GLES ignores inline shader sampler states (`sampler_point_clamp` in SlideDiff.shader)
+        // and falls back to each texture's own FilterMode. Without this, the original is
+        // sampled bilinearly on GLES while the encoded RT is sampled point, putting resampling
+        // noise into the diff. Force point on both so the comparison is honest across
+        // backends.
+        source.filterMode = FilterMode.Point;
+
         try
         {
             if (_encoded != null) { Destroy(_encoded); _encoded = null; }
