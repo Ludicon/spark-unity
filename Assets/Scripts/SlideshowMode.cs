@@ -4,10 +4,7 @@ using UnityEngine;
 using UnityEngine.Profiling;
 using Debug = UnityEngine.Debug;
 
-/// <summary>
-/// Slideshow mode: loops through textures from StreamingAssets every few
-/// seconds, auto-detecting the right Spark format from each file's name.
-/// </summary>
+// Slideshow mode: loops through textures from StreamingAssets every few seconds, auto-detecting the right Spark format from each file's name.
 public class SlideshowMode : SparkDemoMode
 {
     public override string DisplayName => "Slideshow";

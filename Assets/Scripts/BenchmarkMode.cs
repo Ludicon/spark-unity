@@ -6,10 +6,7 @@ using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using Debug = UnityEngine.Debug;
 
-/// <summary>
-/// Synthetic benchmark: encodes a 1024×1024 texture in a tight loop and reports
-/// CPU-measured throughput per format.
-/// </summary>
+// Benchmark mode: encodes a 1024×1024 texture in a tight loop and reports throughput per format.
 public class BenchmarkMode : SparkDemoMode
 {
     public override string DisplayName => "Benchmark";
@@ -92,9 +89,6 @@ public class BenchmarkMode : SparkDemoMode
         if (_syncRT != null) { _syncRT.Release(); Destroy(_syncRT); }
     }
 
-    /// <summary>Lazy fallback when a preferred PBR source isn't in StreamingAssets. Deterministic
-    /// random RGBA32 noise — content doesn't affect block-encoder throughput meaningfully, but
-    /// non-uniform input prevents the driver from optimizing constant tiles away.</summary>
     Texture2D EnsureSyntheticSource()
     {
         if (_syntheticSource != null) return _syntheticSource;

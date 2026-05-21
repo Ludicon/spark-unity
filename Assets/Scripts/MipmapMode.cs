@@ -2,13 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Profiling;
 
-/// <summary>
-/// Mip-chain viewer: encodes a chosen texture with a full mip chain and displays one mip
-/// level at a time via Spark/MipPreview.shader. <c>+</c> and <c>−</c> buttons step through
-/// the chain. Point filtering on the encoded texture means each level shows individual
-/// texels crisply — useful for visually inspecting how Spark's downsampler produces each
-/// successive level.
-/// </summary>
+// Mip-chain viewer: encodes a texture with a full mip chain and displays one mip level at a time.
 public class MipmapMode : SparkDemoMode
 {
     public override string DisplayName => "Mipmaps";

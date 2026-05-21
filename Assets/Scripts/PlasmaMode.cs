@@ -3,12 +3,8 @@ using UnityEngine.Experimental.Rendering;
 using UnityEngine.Profiling;
 using UnityEngine.Rendering;
 
-/// <summary>
-/// Generates an animated plasma into a RenderTexture each frame via a compute shader,
-/// then compresses it with Spark and displays the result. Demonstrates the per-frame
-/// encode path with destination reuse — no allocations during the render loop.
-/// Mirrors spark.js/examples/realtime.html.
-/// </summary>
+// Plasma mode: Generates an animated plasma into a RenderTexture each frame via a compute shader,
+// then compresses it with Spark and displays the result.
 public class PlasmaMode : SparkDemoMode
 {
     public override string DisplayName => "Plasma";
