@@ -10,9 +10,9 @@ It enables the use of standard image formats in WebGL and  WebGPU applications t
 
 This GitHub repository includes a Unity project with several examples:
 
-<img src="Screenshots/screenshot-slideshow.png" width="49%"> <img src="Screenshots/screenshot-plasma.png" width="49%">
+<img src="Images~/screenshot-slideshow.png" width="49%"> <img src="Images~/screenshot-plasma.png" width="49%">
 
-<img src="Screenshots/screenshot-mipmap.png" width="49%"> <img src="Screenshots/screenshot-benchmark.png" width="49%">
+<img src="Images~/screenshot-mipmap.png" width="49%"> <img src="Images~/screenshot-benchmark.png" width="49%">
 
 
 
