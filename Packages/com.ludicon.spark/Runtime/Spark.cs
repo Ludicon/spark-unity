@@ -184,8 +184,10 @@ public static class Spark
         cmd.SetComputeIntParams(shader, "_SrcSizeMip", width, height, sourceMip);
         cmd.DispatchCompute(shader, kernel, groupsX, groupsY, 1);
 
-        if (needsOutputCopy)
+        if (needsOutputCopy) {
+            // This is causing issues on non-multiple of 4 texture dimensions. For example, a 6x4 texture has 2x1 blocks and expects the destination to be 8x4.
             cmd.CopyTexture(rt, 0, 0, 0, 0, blockW, blockH, destination, 0, destMip, 0, 0);
+        }
     }
 
     /// <summary>
