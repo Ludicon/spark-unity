@@ -1,22 +1,31 @@
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
+using UnityEngine.Networking;
 using UnityEngine.Profiling;
 
-// Mip-chain viewer: encodes a texture with a full mip chain and displays one mip level at a time.
+// Mip-chain viewer: encodes a texture with a full mip chain and displays one mip level at a
+// time. Owns its own source texture (loaded WITH mipChain) rather than borrowing from
+// SparkDemo.SourceTextures, which the slideshow mode loads mip-less.
 public class MipmapMode : SparkDemoMode
 {
     public override string DisplayName => "Mipmaps";
 
     public SparkFormat format = SparkFormat.RGB;
 
-    [Tooltip("Filename (without path) preferred for the mip viewer. Falls back to the first texture with a mip chain if not found.")]
-    public string preferredTextureName = "paint";
+    [Tooltip("Path under StreamingAssets/ for the mip-mode source image. Loaded with a mip "
+           + "chain so the encoder has all levels to compress. Default points at "
+           + "StreamingAssets/Mipmap/paint.png — keep mip-mode sources in their own subfolder "
+           + "so they're not picked up by SparkDemo's slideshow loader.")]
+    public string sourcePath = "Mipmap/paint.png";
 
+    Texture2D _source;
     Texture2D _encoded;
-    int _sourceIndex;
     int _selectedMip;
     Material _previewMat;
     string _status;
+    bool _loading;
 
     public override void Activate()
     {
@@ -25,8 +34,18 @@ public class MipmapMode : SparkDemoMode
             var sh = Resources.Load<Shader>("MipPreview");
             if (sh != null) _previewMat = new Material(sh);
         }
-        SelectInitial();
-        Encode();
+
+        // Source is loaded once and kept across tab switches. Encode runs every Activate so
+        // a format change or _selectedMip recovery happens predictably.
+        if (_source == null && !_loading)
+        {
+            _loading = true;
+            StartCoroutine(LoadSourceAndEncode());
+        }
+        else if (_source != null)
+        {
+            Encode();
+        }
     }
 
     public override void Deactivate()
@@ -36,50 +55,79 @@ public class MipmapMode : SparkDemoMode
 
     void OnDestroy()
     {
-        if (_encoded != null) Destroy(_encoded);
+        if (_encoded != null)   Destroy(_encoded);
+        if (_source != null)    Destroy(_source);
         if (_previewMat != null) Destroy(_previewMat);
     }
 
-    void SelectInitial()
+    /// <summary>Load <see cref="sourcePath"/> from StreamingAssets with a mip chain, then
+    /// kick off the first encode. Uses UnityWebRequest on Android (StreamingAssets sits
+    /// inside the APK there) and direct File IO everywhere else.</summary>
+    IEnumerator LoadSourceAndEncode()
     {
-        var sources = Controller.SourceTextures;
-        _sourceIndex = 0;
-        for (int i = 0; i < sources.Count; i++)
+        string path = Application.streamingAssetsPath + "/" + sourcePath;
+        byte[] data = null;
+
+        if (path.Contains("://"))
         {
-            if (sources[i] != null && sources[i].name.IndexOf(preferredTextureName,
-                System.StringComparison.OrdinalIgnoreCase) >= 0)
+            using (var req = UnityWebRequest.Get(path))
             {
-                _sourceIndex = i;
-                break;
+                yield return req.SendWebRequest();
+                if (req.result != UnityWebRequest.Result.Success)
+                {
+                    _status = $"Failed to load {sourcePath}: {req.error}";
+                    _loading = false;
+                    yield break;
+                }
+                data = req.downloadHandler.data;
             }
         }
+        else
+        {
+            if (!File.Exists(path))
+            {
+                _status = $"Source not found: {sourcePath}";
+                _loading = false;
+                yield break;
+            }
+            data = File.ReadAllBytes(path);
+        }
+
+        _source = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: true);
+        _source.name = Path.GetFileNameWithoutExtension(sourcePath);
+        if (!_source.LoadImage(data, markNonReadable: true))
+        {
+            Destroy(_source);
+            _source = null;
+            _status = $"Failed to decode {sourcePath}";
+            _loading = false;
+            yield break;
+        }
+
+        _loading = false;
+        Encode();
     }
 
     void Encode()
     {
-        var sources = Controller.SourceTextures;
-        if (sources.Count == 0) { _status = "No source textures."; return; }
-        if (_sourceIndex >= sources.Count) _sourceIndex = 0;
+        if (_source == null) return;
 
-        var source = sources[_sourceIndex];
-        if (source == null) return;
-
-        if (source.mipmapCount <= 1)
+        if (_source.mipmapCount <= 1)
         {
-            _status = $"{source.name}: source has no mip chain (mipmapCount={source.mipmapCount}).";
+            _status = $"{_source.name}: source has no mip chain (mipmapCount={_source.mipmapCount}).";
             return;
         }
 
         try
         {
             if (_encoded != null) { Destroy(_encoded); _encoded = null; }
-            _encoded = Spark.EncodeTexture(source, format, srgb: true);
+            _encoded = Spark.EncodeTexture(_source, format, srgb: true);
             if (_encoded != null)
+            {
                 _encoded.filterMode = FilterMode.Point;
-            _status = null;
-            // Clamp the previously-selected mip into the new texture's range.
-            if (_encoded != null)
                 _selectedMip = Mathf.Clamp(_selectedMip, 0, _encoded.mipmapCount - 1);
+            }
+            _status = null;
         }
         catch (System.Exception e)
         {
@@ -112,13 +160,11 @@ public class MipmapMode : SparkDemoMode
 
     public override void OnGUIForeground(Rect bounds)
     {
-        var sources = Controller.SourceTextures;
         const float topInset = 4f;
 
         // ── Overlay text ──
-        if (sources.Count > 0 && _sourceIndex < sources.Count && sources[_sourceIndex] != null)
+        if (_source != null || _encoded != null || !string.IsNullOrEmpty(_status))
         {
-            var src = sources[_sourceIndex];
             var lines = new List<string>();
             if (_encoded != null)
             {
@@ -131,7 +177,7 @@ public class MipmapMode : SparkDemoMode
             }
             if (!string.IsNullOrEmpty(_status)) lines.Add(_status);
 
-            GUI.Label(new Rect(bounds.x + 8, bounds.y + topInset, bounds.width - 16, 60),
+            GUI.Label(new Rect(bounds.x + 8, bounds.y + topInset, bounds.width - 16, 80),
                       string.Join("\n", lines), OverlayStyle());
         }
 

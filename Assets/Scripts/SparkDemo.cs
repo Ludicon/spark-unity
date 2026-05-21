@@ -156,7 +156,7 @@ public class SparkDemo : MonoBehaviour
     /// <summary>Load a Texture2D from PNG/JPG bytes with mipChain enabled.</summary>
     public static Texture2D LoadTexture(byte[] data, bool linear = false)
     {
-        var tex = new Texture2D(2, 2, TextureFormat.RGBA32, true, linear);
+        var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false, linear);
         if (!tex.LoadImage(data))
         {
             UnityEngine.Object.Destroy(tex);
