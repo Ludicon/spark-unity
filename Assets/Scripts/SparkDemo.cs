@@ -92,10 +92,12 @@ public class SparkDemo : MonoBehaviour
     {
         get
         {
-            return uiScale * Screen.dpi / 160f;
-            // if (Application.isMobilePlatform)
-            //     return Mathf.Max(uiScale, Screen.width / (340f * 3f));
-            // return uiScale;
+            // DPI-based UI scaling, tuned for desktop at the /160f divisor. Mobile devices
+            // report a much higher Screen.dpi for the same physical button size we want, so
+            // halve the result there to keep the UI from ballooning.
+            float s = uiScale * Screen.dpi / 160f;
+            if (Application.isMobilePlatform) s *= 0.5f;
+            return s;
         }
     }
 
