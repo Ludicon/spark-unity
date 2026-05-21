@@ -60,6 +60,87 @@ public class PanZoomController
         _view.ComputeTexCoords(rw, rh, contentW, contentH, out uvOff, out uvScale);
     }
 
+    // Draw a texture at the display rect via Graphics.DrawTexture and a custom
+    // material. The material's <c>_MainTex</c> slot is filled by <paramref name="mainTex"/>;
+    // any additional uniforms/textures the material needs must be set by the caller before
+    // calling. UV mapping matches <see cref="DrawTexture"/> — the same pan/zoom transform
+    // applies. Wrap behavior outside [0,1] follows the texture's FilterMode/wrap settings
+    // AND whatever sampler the shader binds.
+    public void DrawTextureMaterial(Texture mainTex, Material mat)
+    {
+        if (mainTex == null || mat == null || !_initialized) return;
+        // Graphics.DrawTexture in OnGUI must only run during Repaint events; on Layout /
+        // MouseMove / etc. it produces undefined results (often "draws but skips later
+        // composition steps"). Without this guard, the first frame can briefly show the
+        // texture before the surrounding GUI.DrawTexture calls catch up.
+        if (Event.current != null && Event.current.type != EventType.Repaint) return;
+
+        ComputeUV(mainTex.width, mainTex.height, out Vector2 uvOff, out Vector2 uvScale);
+        int rw = Mathf.Max(1, Mathf.RoundToInt(_displayRect.width));
+        int rh = Mathf.Max(1, Mathf.RoundToInt(_displayRect.height));
+
+        Matrix4x4 prev = GUI.matrix;
+        GUI.matrix = Matrix4x4.identity;
+        Rect uv = new Rect(uvOff.x, uvOff.y, uvScale.x * rw, uvScale.y * rh);
+        Graphics.DrawTexture(_displayRect, mainTex, uv, 0, 0, 0, 0, Color.white, mat);
+        GUI.matrix = prev;
+    }
+
+    // Material variant of DrawTextureClampToBorder.
+    public void DrawTextureMaterialClampToBorder(Texture mainTex, Material mat, Color borderColor)
+    {
+        if (mainTex == null || mat == null || !_initialized) return;
+        // See DrawTextureMaterial — Graphics.DrawTexture in OnGUI is Repaint-only.
+        if (Event.current != null && Event.current.type != EventType.Repaint) return;
+
+        ComputeUV(mainTex.width, mainTex.height, out Vector2 uvOff, out Vector2 uvScale);
+        int rw = Mathf.Max(1, Mathf.RoundToInt(_displayRect.width));
+        int rh = Mathf.Max(1, Mathf.RoundToInt(_displayRect.height));
+
+        float totalUvW = uvScale.x * rw;
+        float totalUvH = uvScale.y * rh;
+
+        Matrix4x4 prevMat = GUI.matrix;
+        GUI.matrix = Matrix4x4.identity;
+
+        // Solid border fill behind everything.
+        Color prevCol = GUI.color;
+        GUI.color = borderColor;
+        GUI.DrawTexture(_displayRect, Texture2D.whiteTexture);
+        GUI.color = prevCol;
+
+        // Same screen-sub / uv-sub math as DrawTextureClampToBorder — see the comments
+        // there for the Y-axis derivation (Graphics.DrawTexture uses the same texCoords
+        // convention as GUI.DrawTextureWithTexCoords: Rect.y is V at the sub-rect's screen
+        // bottom, V increases upward).
+        if (totalUvW > 0f && totalUvH > 0f)
+        {
+            float tMinX = Mathf.Clamp01(-uvOff.x / totalUvW);
+            float tMaxX = Mathf.Clamp01((1f - uvOff.x) / totalUvW);
+            float tMinY = Mathf.Clamp01((uvOff.y + totalUvH - 1f) / totalUvH);
+            float tMaxY = Mathf.Clamp01((uvOff.y + totalUvH) / totalUvH);
+
+            if (tMaxX > tMinX && tMaxY > tMinY)
+            {
+                Rect screenSub = new Rect(
+                    _displayRect.x + tMinX * _displayRect.width,
+                    _displayRect.y + tMinY * _displayRect.height,
+                    (tMaxX - tMinX) * _displayRect.width,
+                    (tMaxY - tMinY) * _displayRect.height);
+
+                Rect uvSub = new Rect(
+                    uvOff.x + tMinX * totalUvW,
+                    uvOff.y + (1f - tMaxY) * totalUvH,
+                    (tMaxX - tMinX) * totalUvW,
+                    (tMaxY - tMinY) * totalUvH);
+
+                Graphics.DrawTexture(screenSub, mainTex, uvSub, 0, 0, 0, 0, Color.white, mat);
+            }
+        }
+
+        GUI.matrix = prevMat;
+    }
+
     // Convenience: draw a texture at the display rect with the current pan/zoom
     // transform. The texture's wrap mode determines what happens past the edges — Repeat
     // tiles, Clamp stretches the edge texels. Reset GUI.matrix locally so the draw happens
