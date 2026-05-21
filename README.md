@@ -1,10 +1,37 @@
 # Spark Unity
 
-GPU texture compression for Unity using [Spark](https://github.com/ludicon/spark) compute shaders.
+GPU texture compression for Unity using [*Spark*](https://github.com/ludicon/spark) compute shaders.
 
-![Screenshot](spark-unity-screenshot.png)
+<img src="Screenshots/screenshot-slideshow.png" width="49%"><img src="Screenshots/screenshot-plasma.png" width="49%">
 
-## Supported Formats
+<img src="Screenshots/screenshot-mipmap.png" width="49%"> <img src="Screenshots/screenshot-benchmark.png" width="49%">
+
+[spark-unity](https://ludicon.com/spark-unity) is a Unity package that exposes a subset of the [*Spark*](https://ludicon.com/spark) codecs through a simple and lightweight API.
+
+
+---
+
+## Installation
+
+Add the package to your project via the Unity Package Manager:
+
+* **Package Manager → Add package from git URL...** and enter:
+
+  ```
+  https://github.com/ludicon/spark-unity.git?path=/Packages/com.ludicon.spark
+  ```
+
+* or add it directly to your project's `Packages/manifest.json`:
+
+  ```json
+  "com.ludicon.spark": "https://github.com/ludicon/spark-unity.git?path=/Packages/com.ludicon.spark"
+  ```
+
+## Features
+
+The Spark Unity package supports a subset of the [Spark](https://github.com/ludicon/spark) codecs at a fixed quality level.
+
+The available formats are:
 
 | Channels | BC Format | Mobile Format | BPP |
 |----------|-----------|---------------|-----|
@@ -16,10 +43,11 @@ GPU texture compression for Unity using [Spark](https://github.com/ludicon/spark
 
 Generic formats (`SparkFormat.R`, `RG`, `RGB`, `RGBA`) auto-resolve to the best format supported on the current GPU.
 
+
 ## Usage
 
 ```csharp
-// Encode a texture
+// Encode a texture with a specific format
 Texture2D compressed = Spark.EncodeTexture(source, SparkFormat.BC7_RGB);
 
 // Auto-select best format for current GPU
@@ -37,7 +65,12 @@ Spark.ReleaseCache();
 
 ## Demo
 
-The included `SparkDemo` scene loads PNG textures from `StreamingAssets/SparkTextures/` and provides a UI to compare original vs compressed textures across formats and quality levels.
+The included `SparkDemo` scene showcases multiple use cases:
+
+- Slideshow: Loads textures from `StreamingAssets/` and compresses them on the fly.
+- Plasma: Displays a procedural plasma effects and compresses it in real-time.
+- Mipmap: Loads a texture, generates mipmaps in the GPU and compresses them.
+- Benchmark: Measures the compression performance of every format.
 
 ## Requirements
 
@@ -47,9 +80,9 @@ The included `SparkDemo` scene loads PNG textures from `StreamingAssets/SparkTex
 
 ## License
 
-spark-unity is free for non-commercial use.
+[spark-unity](https://ludicon.com/spark-unity) is free for non-commercial use.
 
-    The C# code and Unity project files are released under MIT license.
-    Use of the Spark shaders is covered under the spark-unity EULA.
+- The C# code and Unity project files are released under the [MIT license](LICENSE).
+- Use of the [*Spark*](https://ludicon.com/spark) shaders is covered under the [*spark-unity* EULA](https://ludicon.com/spark-unity/eula.html).
 
-See https://ludicon.com/spark-unity/#Licensing for details on how to use spark-unity in commercial projects.
+See https://ludicon.com/spark-unity/#Licensing for details on how to use [spark-unity](https://ludicon.com/spark-unity) in commercial projects.
