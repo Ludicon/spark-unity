@@ -132,8 +132,19 @@
 #pragma multi_compile _ UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
 #pragma multi_compile _ SPK_USE_TEXTURE_GATHER
 
-#define SPK_ENABLE_F16 UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
-#define SPK_ENABLE_F16x2 UNITY_DEVICE_SUPPORTS_NATIVE_16BIT && SPK_USE_TEXTURE_GATHER
+#define SPK_ENABLE_F16 UNITY_DEVICE_SUPPORTS_NATIVE_16BIT || SHADER_API_GLES3
+#define SPK_ENABLE_F16x2 SPK_ENABLE_F16 && SPK_USE_TEXTURE_GATHER
+
+// GLES3 workaround for the ETC2_RGB and ETC2_RGBA kernels using mediump. HLSLcc can't
+// translate the min16int ternaries in these specific shaders. It emits
+// "ERROR missing components in GetBitcastOp" into the generated GLSL, the driver
+// then fails to compile the kernel.
+#if (defined(FORMAT_ETC2_RGB) || defined(FORMAT_ETC2_RGBA)) && SHADER_API_GLES3
+    #undef  SPK_ENABLE_F16
+    #undef  SPK_ENABLE_F16x2
+    #define SPK_ENABLE_F16   0
+    #define SPK_ENABLE_F16x2 0
+#endif
 
 
 
