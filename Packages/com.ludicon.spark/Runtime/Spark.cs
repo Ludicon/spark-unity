@@ -198,20 +198,18 @@ public static class Spark
         if (IsGenericFormat(format))
             format = ResolveFormat(format);
 
-        // Driver bug workaround: PowerVR D-Series under OpenGL ES 3 silently produces a black
-        // texture when sampling BC4-encoded data. The compute write into the temp
-        // R16G16B16A16_UInt RT and the CopyTexture into R_BC4_UNorm both succeed without
-        // error, but the resulting BC4 texture samples as zero everywhere. Confirmed on the
-        // Pixel 10 with PowerVR driver build 25.1. May be fixed in newer drivers; revisit and
-        // tighten the version gate once a fixed build is identified. EAC_R works correctly on
-        // the same device, so reporting BC4_R as unsupported here makes the generic `R`
-        // resolver fall through to EAC_R automatically.
-        if (format == SparkFormat.BC4_R
-            && SystemInfo.graphicsDeviceType == GraphicsDeviceType.OpenGLES3
+        // Unity bug workaround: PowerVR D-Series support BC1-BC5 formats. However, under
+        // OpenGL ES 3 the copies from the temporary R16G16B16A16_UInt render target to the
+        // destination compressed texture are not issued. This is a bug in Unity 6.3, haven't
+        // confirmed it with other versions yet. Note, copies are issued on Adreno. TODO:
+        // - check support of Xclipse.
+        // - check newer Unity versions. Report to Unity if appropriate.
+        if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.OpenGLES3
             && SystemInfo.graphicsDeviceName != null
             && SystemInfo.graphicsDeviceName.Contains("PowerVR D-Series"))
         {
-            return false;
+            if (format == SparkFormat.BC4_R || format == SparkFormat.BC1_RGB)
+                return false;
         }
 
         return SystemInfo.IsFormatSupported(GetCompressedFormat(format, false), GraphicsFormatUsage.Sample);
