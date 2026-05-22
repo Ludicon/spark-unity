@@ -12,6 +12,10 @@ public class PlasmaMode : SparkDemoMode
     public int textureSize = 1024;
     public SparkFormat format = SparkFormat.RGB;
 
+    [Header("Debug")]
+    [Tooltip("Use 8 Byte per block format instead of 16 BPB.")]
+    public bool preferLowQuality = false;
+
     ComputeShader _plasmaShader;
     int _plasmaKernel;
     RenderTexture _source;
@@ -44,8 +48,10 @@ public class PlasmaMode : SparkDemoMode
         };
         _source.Create();
 
+        format = Spark.ResolveFormat(format, preferLowQuality: preferLowQuality);
+
         // Allocate destination compressed Texture2D once. Reused every frame.
-        var compressedFmt = Spark.GetCompressedFormat(Spark.ResolveFormat(format), srgb: true);
+        var compressedFmt = Spark.GetCompressedFormat(format, srgb: true);
         _encoded = new Texture2D(textureSize, textureSize, compressedFmt, mipCount: 1,
             TextureCreationFlags.DontInitializePixels | TextureCreationFlags.DontUploadUponCreate);
         _encoded.filterMode = FilterMode.Point;
