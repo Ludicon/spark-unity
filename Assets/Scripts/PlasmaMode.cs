@@ -139,9 +139,8 @@ public class PlasmaMode : SparkDemoMode
         GUI.Label(new Rect(bounds.x + 8, bounds.y + 8, bounds.width - 16, 80), text, OverlayStyle());
 
         // ── Buttons (drawn BEFORE view input so they consume their MouseDowns first) ──
-        const float btnGap = 4f;
-        const float pauseW = 70f, viewBtnW = 60f, btnH = 24f;
-        float totalW = pauseW;// + btnGap + viewBtnW + btnGap + viewBtnW;
+        const float pauseW = 70f, btnH = 24f;
+        float totalW = pauseW;
 
         float btnY = bounds.y + bounds.height - 32f;
         float x = bounds.x + (bounds.width - totalW) * 0.5f;
