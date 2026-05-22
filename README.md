@@ -38,13 +38,13 @@ The *spark-unity* package supports a subset of the [*Spark*](https://github.com/
 
 The available formats are:
 
-| Channels | BC Format | Mobile Format | BPP |
-|----------|-----------|---------------|-----|
-| RGB      | BC1_RGB   | ETC2_RGB      | 4   |
-| R        | BC4_R     | EAC_R         | 4   |
-| RG       | BC5_RG    | EAC_RG        | 8   |
-| RGB      | BC7_RGB   | ASTC_4x4_RGB  | 8   |
-| RGBA     | BC7_RGBA  | ASTC_4x4_RGBA | 8   |
+| Channels | BC Format | Mobile Format | Bytes Per Block |
+| -------- | --------- | ------------- | --------------- |
+| RGB      | BC1_RGB   | ETC2_RGB      | 4               |
+| R        | BC4_R     | EAC_R         | 4               |
+| RG       | BC5_RG    | EAC_RG        | 8               |
+| RGB      | BC7_RGB   | ASTC_4x4_RGB  | 8               |
+| RGBA     | BC7_RGBA  | ASTC_4x4_RGBA | 8               |
 
 Generic formats (`SparkFormat.R`, `RG`, `RGB`, `RGBA`) auto-resolve to the best format supported on the current GPU.
 
@@ -91,3 +91,4 @@ The included `SparkDemo` scene showcases multiple use cases:
 - Use of the [*Spark*](https://ludicon.com/spark) shaders is covered under the [*spark-unity* EULA](https://ludicon.com/spark-unity/eula.html).
 
 See https://ludicon.com/spark-unity/#Licensing for details on how to use [*spark-unity*](https://ludicon.com/spark-unity) in commercial projects.
+
