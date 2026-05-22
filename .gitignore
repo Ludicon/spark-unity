@@ -35,3 +35,4 @@ spark_*.hlsli.meta
 Thumbs.db
 Export
 Export~
+*.lscache

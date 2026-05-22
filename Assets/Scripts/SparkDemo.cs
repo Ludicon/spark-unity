@@ -92,10 +92,12 @@ public class SparkDemo : MonoBehaviour
     {
         get
         {
-            return uiScale * Screen.dpi / 160f;
-            // if (Application.isMobilePlatform)
-            //     return Mathf.Max(uiScale, Screen.width / (340f * 3f));
-            // return uiScale;
+            // DPI-based UI scaling, tuned for desktop at the /160f divisor. Mobile devices
+            // report a much higher Screen.dpi for the same physical button size we want, so
+            // halve the result there to keep the UI from ballooning.
+            float s = uiScale * Screen.dpi / 160f;
+            if (Application.isMobilePlatform) s *= 0.5f;
+            return s;
         }
     }
 
@@ -156,7 +158,7 @@ public class SparkDemo : MonoBehaviour
     /// <summary>Load a Texture2D from PNG/JPG bytes with mipChain enabled.</summary>
     public static Texture2D LoadTexture(byte[] data, bool linear = false)
     {
-        var tex = new Texture2D(2, 2, TextureFormat.RGBA32, true, linear);
+        var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false, linear);
         if (!tex.LoadImage(data))
         {
             UnityEngine.Object.Destroy(tex);

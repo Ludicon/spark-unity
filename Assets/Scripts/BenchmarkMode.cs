@@ -270,7 +270,7 @@ public class BenchmarkMode : SparkDemoMode
         double msPerTexMean = meanSeconds * 1000.0 / count;
 
         string srcLabel = $"{src.name} {srcW}×{srcH}";
-        var msg = $"{resolved,-15} {srcLabel,-40} best: {msPerTexBest,6:F2} ms ({mpixPerSec,5:F0} MPix/s)  mean: {msPerTexMean,6:F2} ms";
+        var msg = $"{resolved,-15} best: {msPerTexBest,6:F2} ms ({mpixPerSec,5:F0} MPix/s)  mean: {msPerTexMean,6:F2} ms";
         Debug.Log(msg);
         _results.Add(msg);
         yield return null;
