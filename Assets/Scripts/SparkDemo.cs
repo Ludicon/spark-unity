@@ -21,7 +21,7 @@ public class SparkDemo : MonoBehaviour
     /// to convert their scaled-coord bounds back to raw screen pixels.</summary>
     public float UiScaleFactor => EffectiveScale;
 
-    /// <summary>Textures loaded from StreamingAssets/SparkTextures, shared by all modes.</summary>
+    /// <summary>Textures loaded from StreamingAssets/Textures, shared by all modes.</summary>
     public List<Texture2D> SourceTextures { get; } = new List<Texture2D>();
 
     int _activeIndex = 0;
@@ -188,7 +188,7 @@ public class SparkDemo : MonoBehaviour
 
     void LoadTexturesFromDirectory()
     {
-        string dir = Application.streamingAssetsPath;
+        string dir = Path.Combine(Application.streamingAssetsPath, "Textures");
         if (!Directory.Exists(dir)) return;
 
         var files = new List<string>();
@@ -214,7 +214,7 @@ public class SparkDemo : MonoBehaviour
 
     IEnumerator LoadTexturesFromManifest()
     {
-        string basePath = Application.streamingAssetsPath;
+        string basePath = Application.streamingAssetsPath + "/Textures";
 
         using (var req = UnityWebRequest.Get(basePath + "/textures.txt"))
         {
