@@ -67,71 +67,15 @@
 
 #endif
 
-// //#if SPARK_FULL_VERSION || 1
-
-//     // Gate SPK_ENABLE_F16 directly on SHADER_API_* so the pragma scanner sees the same condition.
-//     #if SHADER_API_GLES3
-//         #define SPK_ENABLE_F16 0
-//         #define SPK_ENABLE_F16x2 0
-//     #elif SHADER_API_D3D11
-//         #define SPK_ENABLE_F16 0
-//         #define SPK_ENABLE_F16x2 0
-//     #elif SHADER_API_D3D12
-//         #define SPK_ENABLE_F16 0
-//         #define SPK_ENABLE_F16x2 0
-//     #elif SHADER_API_METAL
-//         // Metal always supports fp16.
-//         #define SPK_ENABLE_F16 1
-//         #define SPK_ENABLE_F16x2 0
-//     #elif SHADER_API_VULKAN
-//         #pragma use_dxc
-//         #pragma target 6.2
-//         #pragma multi_compile _ UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
-//         #define SPK_ENABLE_F16 UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
-//         #define SPK_ENABLE_F16x2 0//UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
-//     #elif SHADER_API_SWITCH || SHADER_API_SWITCH2
-//         // Both Switch targets support fp16.
-//         #define SPK_ENABLE_F16 1
-//         #define SPK_ENABLE_F16x2 1
-//     #elif SHADER_API_PS5
-//         // PS5 always supports fp16.
-//         #define SPK_ENABLE_F16 1
-//         #define SPK_ENABLE_F16x2 1
-//     #elif SHADER_API_PS4
-//         // PS4 Pro support fp16, but PS4 does not. Use multicompile to support both.
-//         #pragma multi_compile _ UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
-//         #define SPK_ENABLE_F16 REAL_IS_HALF
-//         #define SPK_ENABLE_F16x2 REAL_IS_HALF
-//     #elif SHADER_API_XBOXONE || SHADER_API_GAMECORE_XBOXONE
-//         #define SPK_ENABLE_F16 0
-//         #define SPK_ENABLE_F16x2 0
-//     #elif SHADER_API_GAMECORE_SCARLETT
-//         // Xbox Series S / Series X support fp16.
-//         #define SPK_ENABLE_F16 1
-//         #define SPK_ENABLE_F16x2 1
-//     #elif SHADER_API_WEBGPU
-//         // WebGPU supports fp16, but does not support int16 - This would require a different shader variant that we currently don't provide.
-//         #define SPK_ENABLE_F16 0
-//         #define SPK_ENABLE_F16x2 0
-//     #else
-//         // On unknown platforms, disable fp16.
-//         #define SPK_ENABLE_F16 0
-//         #define SPK_ENABLE_F16x2 0
-//     #endif
-
-// // #else
-
-// //     #define SPK_ENABLE_F16 0
-// //     #define SPK_ENABLE_F16x2 0
-
-// // #endif
 
 // These pragmas must be at the top level, you cannot place them inside #if blocks.
 #pragma use_dxc
 #pragma target 6.2
-#pragma multi_compile _ UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
+// For f16 support, uncomment this line in full version.
+//#pragma multi_compile _ UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
 #pragma multi_compile _ SPK_USE_TEXTURE_GATHER
 
+// F16 codecs are only enabled in the full version.
 #if SPK_FULL_VERSION
 	#define SPK_ENABLE_F16 UNITY_DEVICE_SUPPORTS_NATIVE_16BIT || SHADER_API_GLES3
 	#define SPK_ENABLE_F16x2 SPK_ENABLE_F16 && SPK_USE_TEXTURE_GATHER
@@ -153,7 +97,6 @@
 #define SPK_BLOCK_DIM_X 16
 #define SPK_BLOCK_DIM_Y 8
 
-// @@ Maybe we could use Unity's real type directly?
 #if SPK_ENABLE_F16 || SPK_ENABLE_F16x2
     #define SPK_FLOAT  half
     #define SPK_FLOAT2 half2
