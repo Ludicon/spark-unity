@@ -1,0 +1,22 @@
+
+// This is what we have to do in order to determine if a device supports Native16Bit.
+// Run a dummy kernel to probe whether Unity considers this device to supports native
+// 16-bit shader operations. Unity emits two variants of this kernel via multi_compile;
+// at runtime it selects the one matching the device's reported capability, so the
+// value written to _Result is Unity's own verdict, not a guess.
+
+#pragma use_dxc
+#pragma kernel Probe
+#pragma multi_compile _ UNITY_DEVICE_SUPPORTS_NATIVE_16BIT
+
+RWStructuredBuffer<uint> _Result;
+
+[numthreads(1, 1, 1)]
+void Probe(uint3 tid : SV_DispatchThreadID)
+{
+#if defined(UNITY_DEVICE_SUPPORTS_NATIVE_16BIT)
+    _Result[0] = 1;
+#else
+    _Result[0] = 0;
+#endif
+}

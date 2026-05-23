@@ -1,0 +1,44 @@
+// Animated plasma — direct port of the WGSL kernel from
+// spark.js/examples/realtime.html. Writes a 4-blob plasma pattern with
+// cosine-cycling RGB into a writable Texture2D each frame.
+
+#pragma kernel Plasma
+
+RWTexture2D<float4> _Dst;
+
+// xy = (time, padding). z/w = (width, height) in pixels.
+float4 _Params;
+
+static const float PI = 3.14159265;
+
+[numthreads(16, 16, 1)]
+void Plasma(uint3 gid : SV_DispatchThreadID)
+{
+    float w = _Params.z;
+    float h = _Params.w;
+    if (gid.x >= (uint)w || gid.y >= (uint)h) return;
+
+    float time = _Params.x;
+    float2 uv = float2(gid.xy) / float2(w, h);
+
+    float t = time * 10.0;
+    float2 vp = float2(512.0, 512.0);
+    float2 hvp = vp * 0.5;
+
+    float2 p0  = (uv - 0.5) * vp;
+    float2 p1d = float2(cos(t / 98.0),  sin(t / 178.0)) * hvp - p0;
+    float2 p2d = float2(sin(-t / 124.0), cos(-t / 104.0)) * hvp - p0;
+    float2 p3d = float2(cos(-t / 165.0), cos(t / 45.0))  * hvp - p0;
+
+    float sum = 0.5 + 0.5 * (
+        cos(length(p1d) / 30.0) +
+        cos(length(p2d) / 20.0) +
+        sin(length(p3d) / 25.0) * sin(p3d.x / 20.0) * sin(p3d.y / 15.0));
+
+    float i = frac(sum);
+    float3 t2 = (64.0 * time) / float3(63.0, 78.0, 45.0);
+    float3 cs = cos(i * PI * 2.0 + float3(0.0, 1.0, -0.5) * PI + t2);
+    cs = 0.5 * cs + 0.5;
+
+    _Dst[gid.xy] = float4(cs, cs.x);
+}

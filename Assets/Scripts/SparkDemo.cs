@@ -1,261 +1,164 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using UnityEngine;
 using UnityEngine.Networking;
 using Debug = UnityEngine.Debug;
 
-/// <summary>
-/// Demo MonoBehaviour that showcases Spark GPU texture compression.
-///
-/// Attach to any GameObject in a scene. Place PNG/JPG files in
-/// StreamingAssets/SparkTextures — they are loaded at runtime via Spark.LoadTexture,
-///
-/// Usage:
-///   1. Select a source texture from the list.
-///   2. Pick a compression format and quality level.
-///   3. Texture is compressed in the GPU whenever settings change.
-///   4. Compare original vs compressed side-by-side.
-/// </summary>
+
 public class SparkDemo : MonoBehaviour
 {
-    // UI state
-    int           _selectedTexture;
-    int           _selectedFormat = (int)SparkFormat.RGB;
-    SparkQuality  _quality = SparkQuality.Medium;
-    bool          _srgb    = false;
-    Vector2       _texScroll;
-    bool          _fmtDropdownOpen;
+    [Header("Modes")]
+    [Tooltip("Mode components on child GameObjects. Order = tab order. First entry is active at start.")]
+    public SparkDemoMode[] modes;
 
-    // Source textures loaded from StreamingAssets
-    List<Texture2D> _sourceTextures = new List<Texture2D>();
+    [Header("UI")]
+    [Range(0.5f, 4f)]
+    public float uiScale = 2.0f;
 
-    // Result
-    Texture2D _encodedTexture;
-    float     _cpuTimeMs;
-    string    _status = "Loading textures...";
+    /// <summary>The scale factor applied to GUI.matrix by the controller. Modes need this
+    /// to convert their scaled-coord bounds back to raw screen pixels.</summary>
+    public float UiScaleFactor => EffectiveScale;
 
-    // Dirty flag — set when options change, consumed in LateUpdate.
-    // Set to 2 on change so it skips one frame (lets OnGUI
-    // run a matching Layout+Repaint cycle before the texture changes).
-    int _encodeCountdown = 2;
+    /// <summary>Textures loaded from StreamingAssets/Textures, shared by all modes.</summary>
+    public List<Texture2D> SourceTextures { get; } = new List<Texture2D>();
 
-    // Cached format info
-    static readonly string[] FormatNames = System.Enum.GetNames(typeof(SparkFormat));
+    int _activeIndex = 0;
+
+    void Awake()
+    {
+        // Auto-discover modes if not assigned in the inspector.
+        if (modes == null || modes.Length == 0)
+            modes = GetComponentsInChildren<SparkDemoMode>(includeInactive: true);
+
+        foreach (var m in modes)
+        {
+            if (m != null) m.Controller = this;
+        }
+    }
 
     void Start()
     {
-        StartCoroutine(LoadTexturesFromStreamingAssets());
+        // Disable all modes; activate index 0 once textures are ready.
+        foreach (var m in modes)
+            if (m != null) m.gameObject.SetActive(false);
 
-        // Preload most common formats at all quality levels.
-        Spark.Preload(SparkQuality.Low, SparkFormat.RGB, SparkFormat.RGBA, SparkFormat.RG, SparkFormat.R);
-        Spark.Preload(SparkQuality.Medium, SparkFormat.RGB, SparkFormat.RGBA, SparkFormat.RG, SparkFormat.R);
-        Spark.Preload(SparkQuality.High, SparkFormat.RGB, SparkFormat.RGBA, SparkFormat.RG, SparkFormat.R);
+        StartCoroutine(LoadTexturesThenActivate());
+
+        // Preload formats covering the slideshow's heuristics.
+        Spark.Preload(SparkFormat.RGB, SparkFormat.RGBA, SparkFormat.RG, SparkFormat.R);
     }
 
-    void LateUpdate()
+    IEnumerator LoadTexturesThenActivate()
     {
-        if (_encodeCountdown > 0 && _sourceTextures.Count > 0)
-        {
-            if (--_encodeCountdown == 0)
-                Encode();
-        }
+        yield return LoadTexturesFromStreamingAssets();
+        SwitchTo(0);
     }
 
     void OnDestroy()
     {
-        if (_encodedTexture != null)
-            Destroy(_encodedTexture);
-
-        foreach (var tex in _sourceTextures)
+        foreach (var tex in SourceTextures)
             if (tex != null) Destroy(tex);
-
         Spark.ReleaseCache();
     }
 
-    [Header("UI")]
-    [Range(1f, 5f)]
-    public float uiScale = 1.5f;
+    void SwitchTo(int index)
+    {
+        if (modes == null || modes.Length == 0) return;
+        index = Mathf.Clamp(index, 0, modes.Length - 1);
+
+        if (_activeIndex >= 0 && _activeIndex < modes.Length && modes[_activeIndex] != null)
+        {
+            modes[_activeIndex].Deactivate();
+            modes[_activeIndex].gameObject.SetActive(false);
+        }
+        _activeIndex = index;
+        if (modes[_activeIndex] != null)
+        {
+            modes[_activeIndex].gameObject.SetActive(true);
+            modes[_activeIndex].Activate();
+        }
+    }
+
+    void LateUpdate()
+    {
+        if (modes == null || _activeIndex >= modes.Length) return;
+        var active = modes[_activeIndex];
+        if (active != null) active.OnTick();
+    }
 
     float EffectiveScale
     {
         get
         {
-            // On mobile, scale so the panel (~340px) is about 1/3 of screen width.
-            if (Application.isMobilePlatform)
-                return Mathf.Max(uiScale, Screen.width / (340f * 3f));
-            return uiScale;
+            // DPI-based UI scaling, tuned for desktop at the /160f divisor. Mobile devices
+            // report a much higher Screen.dpi for the same physical button size we want, so
+            // halve the result there to keep the UI from ballooning.
+            float s = uiScale * Screen.dpi / 160f;
+            if (Application.isMobilePlatform) s *= 0.5f;
+            return s;
         }
     }
 
     void OnGUI()
     {
         float scale = EffectiveScale;
-
-        // Scale the entire UI uniformly.
         GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scale, scale, 1f));
 
-        // Use safe area to avoid rounded corners and notches.
         Rect safe = Screen.safeArea;
+        float topMargin = Screen.height - (safe.y + safe.height);
         float safeX = safe.x / scale;
-        float safeY = safe.y / scale;
+        float safeY = topMargin / scale;
         float safeW = safe.width / scale;
         float safeH = safe.height / scale;
 
-        // Work in scaled coordinates.
-        float panelW = 340f;
-        float margin = 10f;
+        var activeMode = modes[_activeIndex];
 
-        GUILayout.BeginArea(new Rect(safeX + margin, safeY + margin, panelW, safeH - margin * 2));
+        // Render background. Pass the full-screen rect in *scaled* coords (matching the active
+        // GUI.matrix), so modes that convert via bounds * UiScaleFactor land on the real screen
+        // pixels — not Screen.width * scale, which over-inflates the rect by the scale factor.
+        Rect screenRect = new Rect(0f, 0f, Screen.width / scale, Screen.height / scale);
+        activeMode.OnGUIBackground(screenRect);
 
-        // Title
-        GUILayout.Label("<b>Spark Texture Compression</b>", RichStyle());
-        GUILayout.Space(4);
+        // Render tab strip.
+        const float TabH = 28f;
+        Rect tabRect = new Rect(safeX, safeY, safeW, TabH);
+        DrawTabs(tabRect);
 
-        // Texture list
-        GUILayout.Label("Source Texture:");
-        _texScroll = GUILayout.BeginScrollView(_texScroll, GUILayout.Height(176));
-        for (int i = 0; i < _sourceTextures.Count; i++)
-        {
-            var tex = _sourceTextures[i];
-            string name = tex != null ? $"{tex.name}  ({tex.width}x{tex.height})" : "(null)";
-
-            bool selected = (_selectedTexture == i);
-            bool clicked  = GUILayout.Toggle(selected, name, "Button");
-            if (clicked && !selected)
-            {
-                _selectedTexture = i;
-                _encodeCountdown = 2;
-            }
-        }
-        GUILayout.EndScrollView();
-
-        GUILayout.Space(8);
-
-        // Format combo box
-        GUILayout.Label("Format:");
-        if (GUILayout.Button(FormatNames[_selectedFormat], "Button"))
-            _fmtDropdownOpen = !_fmtDropdownOpen;
-
-        if (_fmtDropdownOpen)
-        {
-            for (int i = 0; i < FormatNames.Length; i++)
-            {
-                var fmt = (SparkFormat)i;
-                bool supported = Spark.IsFormatSupported(fmt);
-                var resolved = Spark.ResolveFormat(fmt);
-                string label = FormatNames[i];
-                if (resolved != fmt)
-                    label += $" → {resolved}";
-                if (!supported)
-                    label = $"<color=#888>{label} (n/a)</color>";
-
-                if (GUILayout.Button(label, RichButton()))
-                {
-                    _selectedFormat = i;
-                    _fmtDropdownOpen = false;
-                    _encodeCountdown = 2;
-                }
-            }
-        }
-
-        GUILayout.Space(8);
-
-        // Quality
-        GUILayout.Label("Quality:");
-        var newQuality = (SparkQuality)GUILayout.SelectionGrid((int)_quality, new[] { "Low", "Medium", "High" }, 3);
-        if (newQuality != _quality)
-        {
-            _quality = newQuality;
-            _encodeCountdown = 2;
-        }
-
-        //GUILayout.Space(4);
-        //_srgb = GUILayout.Toggle(_srgb, "sRGB");
-
-        // Status
-        if (!string.IsNullOrEmpty(_status))
-        {
-            GUILayout.Space(8);
-            GUILayout.Label(_status, WrapStyle());
-        }
-
-        GUILayout.EndArea();
-
-        // ── Preview area ──
-        float previewX = safeX + panelW + margin * 2;
-        float previewMaxW = safeW - (previewX - safeX) - margin;
-        DrawPreviews(previewX, safeY + margin, previewMaxW);
+        // Render foreground (overlay, buttons, input).
+        Rect modeArea = new Rect(safeX, safeY + TabH, safeW, safeH - TabH);
+        activeMode.OnGUIForeground(modeArea);
     }
 
-    void DrawPreviews(float startX, float startY, float available)
+    void DrawTabs(Rect bounds)
     {
-        float margin   = 10f;
-        float previewW = (available - margin) / 2f;
-        float previewH = previewW;
+        if (modes == null || modes.Length == 0) return;
 
-        // Original
-        if (_selectedTexture < _sourceTextures.Count && _sourceTextures[_selectedTexture] != null)
+        // Semi-transparent tab strip — texture shows through behind the buttons.
+        Color prev = GUI.color;
+        GUI.color = new Color(1f, 1f, 1f, 0.85f);
+
+        float w = bounds.width / modes.Length;
+        for (int i = 0; i < modes.Length; i++)
         {
-            var src = _sourceTextures[_selectedTexture];
-            GUI.Label(new Rect(startX, startY, previewW, 20), "Original");
-            GUI.DrawTexture(new Rect(startX, startY + 22, previewW, previewH), src, ScaleMode.ScaleToFit);
+            var m = modes[i];
+            var r = new Rect(bounds.x + i * w, bounds.y, w - 2f, bounds.height);
+            bool isActive = i == _activeIndex;
+            bool clicked = GUI.Toggle(r, isActive, m.DisplayName, "Button");
+            if (clicked && !isActive)
+                SwitchTo(i);
         }
 
-        // Encoded
-        if (_encodedTexture != null)
-        {
-            float ex = startX + previewW + margin;
-            GUI.Label(new Rect(ex, startY, previewW, 20),
-                $"Encoded  ({_encodedTexture.graphicsFormat})");
-            GUI.DrawTexture(new Rect(ex, startY + 22, previewW, previewH), _encodedTexture, ScaleMode.ScaleToFit);
-        }
+        GUI.color = prev;
     }
 
-    void Encode()
-    {
-        if (_selectedTexture >= _sourceTextures.Count || _sourceTextures[_selectedTexture] == null)
-        {
-            _status = "No texture selected.";
-            return;
-        }
+    // ─── Texture loading (shared by all modes) ───
 
-        var format = (SparkFormat)_selectedFormat;
-        var source = _sourceTextures[_selectedTexture];
-
-        try
-        {
-            if (_encodedTexture != null)
-            {
-                Destroy(_encodedTexture);
-                _encodedTexture = null;
-            }
-
-            var sw = Stopwatch.StartNew();
-            _encodedTexture = Spark.EncodeTexture(source, format, _quality, _srgb);
-            sw.Stop();
-            _cpuTimeMs = (float)sw.Elapsed.TotalMilliseconds;
-
-            _status = $"Encoded {format} ({_quality}) — CPU {_cpuTimeMs:F1} ms, GPU {Spark.GpuTimeMs:F1} ms";
-            Debug.Log($"[Spark] {_status}");
-        }
-        catch (System.Exception e)
-        {
-            _status = $"Error: {e.Message}";
-            Debug.LogException(e);
-        }
-    }
-
-    // ─── Helpers ───
-
-    /// <summary>
-    /// Load a texture from a PNG or JPG byte array.
-    /// </summary>
+    /// <summary>Load a Texture2D from PNG/JPG bytes with mipChain enabled.</summary>
     public static Texture2D LoadTexture(byte[] data, bool linear = false)
     {
-        var tex = new Texture2D(2, 2, TextureFormat.RGBA32, true, linear);
+        var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false, linear);
         if (!tex.LoadImage(data))
         {
             UnityEngine.Object.Destroy(tex);
@@ -264,9 +167,6 @@ public class SparkDemo : MonoBehaviour
         return tex;
     }
 
-    /// <summary>
-    /// Load a texture from a file path (PNG or JPG). Not supported on Android StreamingAssets.
-    /// </summary>
     public static Texture2D LoadTexture(string filePath, bool linear = false)
     {
         if (!File.Exists(filePath))
@@ -278,33 +178,18 @@ public class SparkDemo : MonoBehaviour
         return tex;
     }
 
-    /// <summary>
-    /// Load textures from StreamingAssets/SparkTextures/.
-    /// On desktop, enumerates the directory directly.
-    /// On mobile (Android), uses UnityWebRequest + textures.txt manifest
-    /// since StreamingAssets is inside the APK.
-    /// </summary>
     IEnumerator LoadTexturesFromStreamingAssets()
     {
-        if (Application.isMobilePlatform)
+        if (Application.platform == RuntimePlatform.Android)
             yield return LoadTexturesFromManifest();
         else
             LoadTexturesFromDirectory();
-
-        if (_sourceTextures.Count == 0)
-            _status = "No textures found. Place PNGs in StreamingAssets/SparkTextures/.";
-        else
-        {
-            _status = "";
-            _encodeCountdown = 2;
-        }
     }
 
     void LoadTexturesFromDirectory()
     {
-        string dir = Path.Combine(Application.streamingAssetsPath, "SparkTextures");
-        if (!Directory.Exists(dir))
-            return;
+        string dir = Path.Combine(Application.streamingAssetsPath, "Textures");
+        if (!Directory.Exists(dir)) return;
 
         var files = new List<string>();
         files.AddRange(Directory.GetFiles(dir, "*.png"));
@@ -317,7 +202,7 @@ public class SparkDemo : MonoBehaviour
             try
             {
                 var tex = LoadTexture(file);
-                _sourceTextures.Add(tex);
+                SourceTextures.Add(tex);
                 Debug.Log($"[SparkDemo] Loaded {tex.name} ({tex.width}x{tex.height})");
             }
             catch (Exception e)
@@ -329,7 +214,7 @@ public class SparkDemo : MonoBehaviour
 
     IEnumerator LoadTexturesFromManifest()
     {
-        string basePath = Application.streamingAssetsPath + "/SparkTextures";
+        string basePath = Application.streamingAssetsPath + "/Textures";
 
         using (var req = UnityWebRequest.Get(basePath + "/textures.txt"))
         {
@@ -357,7 +242,7 @@ public class SparkDemo : MonoBehaviour
                     {
                         var tex = LoadTexture(texReq.downloadHandler.data);
                         tex.name = Path.GetFileNameWithoutExtension(filename);
-                        _sourceTextures.Add(tex);
+                        SourceTextures.Add(tex);
                         Debug.Log($"[SparkDemo] Loaded {tex.name} ({tex.width}x{tex.height})");
                     }
                     catch (Exception e)
@@ -367,36 +252,5 @@ public class SparkDemo : MonoBehaviour
                 }
             }
         }
-    }
-
-    // GUI style helpers
-    static GUIStyle s_richStyle;
-    static GUIStyle RichStyle()
-    {
-        if (s_richStyle == null)
-        {
-            s_richStyle = new GUIStyle(GUI.skin.label) { richText = true, fontSize = 14 };
-        }
-        return s_richStyle;
-    }
-
-    static GUIStyle s_richButton;
-    static GUIStyle RichButton()
-    {
-        if (s_richButton == null)
-        {
-            s_richButton = new GUIStyle("Button") { richText = true, alignment = TextAnchor.MiddleLeft };
-        }
-        return s_richButton;
-    }
-
-    static GUIStyle s_wrapStyle;
-    static GUIStyle WrapStyle()
-    {
-        if (s_wrapStyle == null)
-        {
-            s_wrapStyle = new GUIStyle(GUI.skin.label) { wordWrap = true };
-        }
-        return s_wrapStyle;
     }
 }

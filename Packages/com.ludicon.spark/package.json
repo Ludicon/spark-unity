@@ -1,0 +1,21 @@
+{
+  "name": "com.ludicon.spark",
+  "version": "0.1.0",
+  "displayName": "Spark",
+  "description": "GPU texture compression for Unity using [Spark](https://github.com/ludicon/spark) compute shaders.",
+  "unity": "2022.3",
+  "author": {
+    "name": "Ludicon LLC",
+    "email": "castano@ludicon.com",
+    "url": "https://ludicon.com"
+  },
+  "keywords": [
+    "texture",
+    "compression",
+    "bc7",
+    "astc",
+    "etc2",
+    "compute",
+    "gpu"
+  ]
+}
