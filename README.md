@@ -12,7 +12,8 @@ This GitHub repository includes a Unity project with several examples:
 
 <img src="Images~/screenshot-slideshow.png" width="49%"> <img src="Images~/screenshot-plasma.png" width="49%">
 
-<img src="Images~/screenshot-mipmap.png" width="49%"> <img src="Images~/screenshot-benchmark.png" width="49%">
+<img src="Images~/screenshot-mipmap.png" width="49%"> <img src="Images~/screenshot-gltf.png" width="49%">
+
 
 
 
@@ -91,4 +92,3 @@ The included `SparkDemo` scene showcases multiple use cases:
 - Use of the [*Spark*](https://ludicon.com/spark) shaders is covered under the [*spark-unity* EULA](https://ludicon.com/spark-unity/eula.html).
 
 See https://ludicon.com/spark-unity/#Licensing for details on how to use [*spark-unity*](https://ludicon.com/spark-unity) in commercial projects.
-
