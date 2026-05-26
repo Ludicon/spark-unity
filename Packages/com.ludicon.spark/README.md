@@ -1,6 +1,6 @@
 # *Spark for Unity*  
 
-GPU texture compression for Unity using [*Spark*](https://github.com/ludicon/spark) codecs.
+GPU texture compression for Unity using the [*Spark*](https://github.com/ludicon/spark) codecs.
 
 Encode Unity textures to native GPU formats (BC7, ASTC, ETC2, …) at load time:
 

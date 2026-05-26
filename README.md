@@ -1,8 +1,8 @@
 # *Spark for Unity*
 
-GPU texture compression for Unity using [*Spark*](https://github.com/ludicon/spark) codecs.
+GPU texture compression for Unity using the [*Spark*](https://github.com/ludicon/spark) codecs.
 
-*Spark for Unity* is a Unity package that exposes a subset of the [*Spark*](https://github.com/ludicon/spark) codecs through a simple and lightweight API. It enables the use of procedural textures and standard image formats in Unity applications, encoding them at load time to native GPU formats like BC7, ASTC, and ETC2, using fast, high-quality GPU compute shaders.
+*Spark for Unity* is a Unity package that exposes a subset of the [*Spark*](https://github.com/ludicon/spark) codecs through a simple and lightweight API. It enables the use of procedural textures and standard image formats in Unity applications, encoding them at runtime to native GPU formats like BC7, ASTC, and ETC2, using fast, high-quality GPU compute shaders.
 
 This GitHub repository includes a Unity project with several examples:
 
@@ -10,9 +10,6 @@ This GitHub repository includes a Unity project with several examples:
 
 <img src="Images~/screenshot-mipmap.png" width="49%"> <img src="Images~/screenshot-gltf.png" width="49%">
 
-
-
-*Spark for Unity* has been tested on Metal (macOS, iOS), Vulkan (Android, Windows), OpenGL ES 3.1 (Android), and Direct3D (Windows). The API may change, and it has not been tested thoroughly on all platforms and devices. If you encounter any issues, please report them at: https://github.com/Ludicon/spark-unity/issues
 
 ## Installation
 
@@ -46,6 +43,11 @@ The available formats are:
 
 Generic formats (`SparkFormat.R`, `RG`, `RGB`, `RGBA`) auto-resolve to the best format supported on the current GPU.
 
+## Compatibility
+
+*Spark for Unity* has been tested on Metal (macOS, iOS), Vulkan (Android, Windows), OpenGL ES 3.1 (Android), and Direct3D (Windows). It has been tested on Unity versions 6.3 to 6.6.
+
+The API may change, and it has not been tested thoroughly on all platforms and devices. If you encounter any issues, please report them at: https://github.com/Ludicon/spark-unity/issues
 
 ## Usage
 
@@ -75,10 +77,6 @@ The included `SparkDemo` scene showcases multiple use cases:
 - **Mipmap**: Loads a texture, generates mipmaps in the GPU and compresses them.
 - **glTF**: Loads a glTF model using the glTFast importer and encodes its textures.
 - **Benchmark**: Measures the compression performance of every format.
-
-## Compatibility
-
-Tested on Unity versions 6.3 to 6.6.
 
 ## License
 
