@@ -78,6 +78,12 @@ The included `SparkDemo` scene showcases multiple use cases:
 - **glTF**: Loads a glTF model using the glTFast importer and encodes its textures.
 - **Benchmark**: Measures the compression performance of every format.
 
+## Frequently Asked Questions
+
+**Why not simply use Unity's [Texture2D.Compress](https://docs.unity3d.com/ScriptReference/Texture2D.Compress.html) instead of *Spark*?**
+
+Texture2D.Compress is a built-in Unity function that compresses textures to DXT/BCn or ETC formats. It's orders of magnitude slower than Spark (from 10 to 1000x slower), produces lower quality results, and does not support BC7 and ASTC formats.
+
 ## License
 
 *Spark for Unity* is free for non-commercial use.
