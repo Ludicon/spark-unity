@@ -138,19 +138,14 @@ public static class Spark
     /// <param name="destMip">Mip level of <paramref name="destination"/> to write into (default 0).</param>
     public static void EncodeTexture(CommandBuffer cmd, Texture source, Texture destination, SparkFormat format, int sourceMip = 0, int destMip = 0)
     {
-        if (source == null)
-            throw new ArgumentNullException(nameof(source));
-        if (cmd == null)
-            throw new ArgumentNullException(nameof(cmd));
-        if (destination == null)
-            throw new ArgumentNullException(nameof(destination));
+        Debug.Assert(cmd != null);
+        Debug.Assert(source != null);
+        Debug.Assert(destination != null);
+        Debug.Assert(!IsGenericFormat(format));
 
         // Resolve shader and kernel.
         ComputeShader shader = Shader;
-        if (shader == null)
-            throw new InvalidOperationException($"Could not load compute shader. Make sure SparkUnity is in a Resources folder.");
-
-        format = ResolveFormat(format);
+        Debug.Assert(shader != null);
 
         string kernelName = GetKernelName(format);
         int kernel = shader.FindKernel(kernelName);
