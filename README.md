@@ -1,6 +1,6 @@
-# Spark for Unity
+# *Spark for Unity*
 
-GPU texture compression for Unity using [*Spark*](https://github.com/ludicon/spark) compute shaders.
+GPU texture compression for Unity using [*Spark*](https://github.com/ludicon/spark) codecs.
 
 *Spark for Unity* is a Unity package that exposes a subset of the [*Spark*](https://github.com/ludicon/spark) codecs through a simple and lightweight API. It enables the use of procedural textures and standard image formats in Unity applications, encoding them at load time to native GPU formats like BC7, ASTC, and ETC2, using fast, high-quality GPU compute shaders.
 
@@ -36,13 +36,13 @@ The *Spark for Unity* package supports a subset of the [*Spark*](https://github.
 
 The available formats are:
 
-| Channels | BC Format | Mobile Format | Bytes Per Block |
-| -------- | --------- | ------------- | --------------- |
-| RGB      | BC1_RGB   | ETC2_RGB      | 4               |
-| R        | BC4_R     | EAC_R         | 4               |
-| RG       | BC5_RG    | EAC_RG        | 8               |
-| RGB      | BC7_RGB   | ASTC_4x4_RGB  | 8               |
-| RGBA     | BC7_RGBA  | ASTC_4x4_RGBA | 8               |
+| Channels | BC Format | Mobile Format | BPP |
+| -------- | --------- | ------------- | --- |
+| RGB      | BC1_RGB   | ETC2_RGB      | 4   |
+| R        | BC4_R     | EAC_R         | 4   |
+| RG       | BC5_RG    | EAC_RG        | 8   |
+| RGB      | BC7_RGB   | ASTC_4x4_RGB  | 8   |
+| RGBA     | BC7_RGBA  | ASTC_4x4_RGBA | 8   |
 
 Generic formats (`SparkFormat.R`, `RG`, `RGB`, `RGBA`) auto-resolve to the best format supported on the current GPU.
 
@@ -76,11 +76,9 @@ The included `SparkDemo` scene showcases multiple use cases:
 - **glTF**: Loads a glTF model using the glTFast importer and encodes its textures.
 - **Benchmark**: Measures the compression performance of every format.
 
-## Requirements
+## Compatibility
 
-- Tested on Unity 6.3 LTS (6000.3.11f1).
-- Tested on Unity 6.4 (6000.4.7f1).
-- Tested on Unity 6.6 (6000.6.0a5).
+Tested on Unity versions 6.3 to 6.6.
 
 ## License
 
