@@ -211,7 +211,7 @@ public class SlideshowMode : SparkDemoMode
         {
             long vmem = Profiler.GetRuntimeMemorySizeLong(_encoded);
             string modeLabel = _viewMode == ViewMode.Diff ? $"Diff ×{diffAmplify:F0}" : _viewMode.ToString();
-            lines.Add($"{_detectedFormat} → {_encoded.format}  VMem {FormatBytes(vmem)}  <i>view: {modeLabel}</i>");
+            lines.Add($"{_detectedFormat} → {_encoded.format}  VMem {FormatBytes(vmem)}");
         }
         if (!string.IsNullOrEmpty(_status))
             lines.Add(_status);

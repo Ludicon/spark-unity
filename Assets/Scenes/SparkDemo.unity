@@ -592,12 +592,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b2924a96261ea4b75a786718ff5920c9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ObjectMode
-  modelPrefab: {fileID: 2107409826236812522, guid: 2bddda4585cc94b08b853d4d0e861659, type: 3}
-  compressTextures: 0
-  useRuntimeLoad: 1
   streamingAssetsModelPath: Models/FlightHelmet-jpeg.glb
-  fallbackFormat: 2
-  preferredTextureName: Material.003_Base_color
   autoOrbitSpeed: 20
   cameraDistance: 3.2
   dragSensitivity: 0.3
@@ -605,7 +600,7 @@ MonoBehaviour:
   zoomInertiaDecay: 6
   maxAngularSpeed: 240
   maxZoomSpeed: 4
-  minDistance: 0.5
+  minDistance: 0.25
   maxDistance: 12
   panInertiaDecay: 5
   maxPanSpeed: 4
