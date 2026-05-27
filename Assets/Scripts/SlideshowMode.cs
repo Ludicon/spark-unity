@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
-using UnityEngine.Profiling;
+using UnityEngine.Experimental.Rendering;
 using Debug = UnityEngine.Debug;
 
 // Slideshow mode: loops through textures from StreamingAssets every few seconds, auto-detecting the right Spark format from each file's name.
@@ -209,7 +209,7 @@ public class SlideshowMode : SparkDemoMode
         }
         if (_encoded != null)
         {
-            long vmem = Profiler.GetRuntimeMemorySizeLong(_encoded);
+            long vmem = GraphicsFormatUtility.ComputeMipChainSize(_encoded.width, _encoded.height, _encoded.graphicsFormat, _encoded.mipmapCount);
             string modeLabel = _viewMode == ViewMode.Diff ? $"Diff ×{diffAmplify:F0}" : _viewMode.ToString();
             lines.Add($"{_detectedFormat} → {_encoded.format}  VMem {FormatBytes(vmem)}");
         }

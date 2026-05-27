@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
-using UnityEngine.Profiling;
 using UnityEngine.Rendering;
 
 // Plasma mode: Generates an animated plasma into a RenderTexture each frame via a compute shader,
@@ -132,7 +131,7 @@ public class PlasmaMode : SparkDemoMode
         }
 
         // Overlay text.
-        long vmem = Profiler.GetRuntimeMemorySizeLong(_encoded);
+        long vmem = GraphicsFormatUtility.ComputeMipChainSize(_encoded.width, _encoded.height, _encoded.graphicsFormat, _encoded.mipmapCount);
         var text =
             $"<b>Procedural Plasma</b>  {_encoded.width}x{_encoded.height}\n" +
             $"RGB → {_encoded.format}  VMem {FormatBytes(vmem)} FPS {1f / Mathf.Max(Time.smoothDeltaTime, 1e-4f):F0}";
