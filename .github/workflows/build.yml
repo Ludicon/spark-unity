@@ -1,0 +1,60 @@
+name: build
+
+on:
+  push:
+    branches: ["main"]
+    paths-ignore: ["**.md"]
+  pull_request:
+    branches: ["main"]
+    paths-ignore: ["**.md"]
+  workflow_dispatch: # Enables manual triggering
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    runs-on: [self-hosted, macos]
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          lfs: false # compile gate doesn't need the LFS binary assets (models/textures)
+
+      - name: Resolve Unity editor
+        run: |
+          ver=$(grep -oE '6000\.[0-9]+\.[0-9]+f[0-9]+' ProjectSettings/ProjectVersion.txt | head -1)
+          unity="/Applications/Unity/Hub/Editor/$ver/Unity.app/Contents/MacOS/Unity"
+          echo "Project requires Unity $ver"
+          if [ ! -x "$unity" ]; then
+            echo "::error::Unity $ver is not installed on this runner (expected $unity). Install it via Unity Hub."
+            exit 1
+          fi
+          echo "UNITY=$unity" >> "$GITHUB_ENV"
+
+      - name: Compile (Unity batch import)
+        run: |
+          set -o pipefail
+          # Opening the project in batch mode imports assets and compiles every C# assembly.
+          # Unity does NOT reliably return a non-zero exit on C# compile errors, so we also scan
+          # the log for "error CS…" and fail on that.
+          "$UNITY" -batchmode -quit -nographics \
+            -projectPath . \
+            -logFile - 2>&1 | tee unity.log
+          status=$?
+          if grep -qE "error CS[0-9]+" unity.log; then
+            echo "::error::C# compilation failed"
+            status=1
+          fi
+          exit $status
+
+      - name: Summarize build errors
+        if: failure()
+        run: python3 .github/workflows/extract_build_errors.py unity.log
