@@ -10,6 +10,8 @@ This GitHub repository includes a Unity project with several examples:
 
 <img src="Images~/screenshot-mipmap.png" width="49%"> <img src="Images~/screenshot-gltf.png" width="49%">
 
+<img src="Images~/screenshot-manderbrot.png" width="49%">
+
 
 ## Installation
 

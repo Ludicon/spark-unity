@@ -1,0 +1,52 @@
+// Procedural tile generator for VirtualTextureMode. Renders one virtual-texture page
+// (a sub-rect of UV space) of the Mandelbrot set into a writable tile texture. Swap this
+// kernel for any other "uv -> color" generator to feed the same virtual texturing demo.
+
+#pragma kernel Generate
+
+RWTexture2D<float4> _Dst;
+
+// xy = page UV origin, z = page UV size, w = max iterations.
+float4 _Tile;
+int    _Samples;   // sub-samples per axis (1 = off); the texel averages _Samples² of them
+
+// UV [0,1]^2 maps to this region of the complex plane (square, centered on the set).
+static const float2 CMIN  = float2(-2.25, -1.5);
+static const float  CSPAN = 3.0;
+
+float3 Mandel(float2 uv, int maxIter)
+{
+    float2 c = CMIN + uv * CSPAN;
+    float2 z = 0;
+    int i = 0;
+    [loop] for (; i < maxIter; i++)
+    {
+        z = float2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+        if (dot(z, z) > 4.0) break;
+    }
+    return (i >= maxIter)
+        ? float3(0, 0, 0)
+        : 0.5 + 0.5 * cos(6.2831853 * ((float)i / maxIter + float3(0.0, 0.33, 0.67)));
+}
+
+[numthreads(8, 8, 1)]
+void Generate(uint3 id : SV_DispatchThreadID)
+{
+    uint w, h;
+    _Dst.GetDimensions(w, h);
+    if (id.x >= w || id.y >= h) return;
+
+    int maxIter = (int)_Tile.w;
+    int S = max(_Samples, 1);
+    float2 inv = 1.0 / float2(w, h);
+
+    float3 col = 0;
+    [loop] for (int sy = 0; sy < S; sy++)
+        [loop] for (int sx = 0; sx < S; sx++)
+        {
+            float2 uv = _Tile.xy + (float2(id.xy) + (float2(sx, sy) + 0.5) / S) * inv * _Tile.z;
+            col += Mandel(uv, maxIter);
+        }
+
+    _Dst[id.xy] = float4(col / (S * S), 1.0);
+}
