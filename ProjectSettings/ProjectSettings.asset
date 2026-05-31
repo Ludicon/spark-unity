@@ -12,7 +12,7 @@ PlayerSettings:
   targetDevice: 2
   useOnDemandResources: 0
   accelerometerFrequency: 60
-  companyName: ludicon
+  companyName: Ludicon
   productName: Spark for Unity Demo
   defaultCursor: {fileID: 0}
   cursorHotspot: {x: 0, y: 0}
@@ -167,7 +167,9 @@ PlayerSettings:
   androidMaxAspectRatio: 2.4
   androidMinAspectRatio: 1
   applicationIdentifier:
+    Android: com.ludicon.spark_unity_demo
     Standalone: com.DefaultCompany.3D-Project
+    iPhone: com.ludicon.spark-unity-demo
   buildNumber:
     Standalone: 0
     VisionOS: 0
@@ -250,7 +252,7 @@ PlayerSettings:
   iOSManualSigningProvisioningProfileType: 0
   tvOSManualSigningProvisioningProfileType: 0
   VisionOSManualSigningProvisioningProfileType: 0
-  appleEnableAutomaticSigning: 0
+  appleEnableAutomaticSigning: 1
   iOSRequireARKit: 0
   iOSAutomaticallyDetectAndAddCapabilities: 1
   appleEnableProMotion: 0
