@@ -88,9 +88,9 @@ Texture2D.Compress is a built-in Unity function that compresses textures to DXT/
 
 ## License
 
-*Spark for Unity* is free for non-commercial use.
+*Spark for Unity* is free for non-commercial use, or until your product reaches $100,000 in lifetime revenue.
 
 - The C# code and Unity project files are released under the [MIT license](LICENSE).
-- Use of the [*Spark*](https://ludicon.com/spark) shaders is covered under the [*Spark for Unity* EULA](https://ludicon.com/spark-unity/eula.html).
+- Use of the *Spark* shaders is covered under the [*Spark* EULA](https://ludicon.com/spark/eula.html).
 
-Stay tuned for details on how to use *Spark for Unity* in commercial projects or contact us at: spark@ludicon.com
+See [ludicon.com/spark#licensing](https://ludicon.com/spark#licensing) for the full licensing details.
