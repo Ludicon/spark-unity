@@ -29,6 +29,7 @@ public class SlideshowMode : SparkDemoMode
     int _selected;
     float _nextAdvanceTime;
     bool _paused;
+    bool _useBuiltin;   // internal testing: use runtime Texture2D.Compress instead of Spark
 
     Texture2D _encoded;
     float _cpuTimeMs;
@@ -114,7 +115,9 @@ public class SlideshowMode : SparkDemoMode
             if (_encoded != null) { Destroy(_encoded); _encoded = null; }
 
             var sw = Stopwatch.StartNew();
-            _encoded = Spark.EncodeTexture(source, _detectedFormat, srgb: true);
+            _encoded = _useBuiltin
+                ? EncodeBuiltin(source, _detectedFormat)
+                : Spark.EncodeTexture(source, _detectedFormat, srgb: true);
             sw.Stop();
             _cpuTimeMs = (float)sw.Elapsed.TotalMilliseconds;
             if (_encoded != null)
@@ -126,6 +129,25 @@ public class SlideshowMode : SparkDemoMode
             _status = $"Error: {e.Message}";
             Debug.LogException(e);
         }
+    }
+
+    // Runtime Texture2D.Compress path. The target BCn format is decided by the source
+    // TextureFormat: R8 -> BC4, RG16 -> BC5, RGB24 -> DXT1, RGBA32 -> DXT5. No BC7 path.
+    static Texture2D EncodeBuiltin(Texture2D source, SparkFormat detected)
+    {
+        TextureFormat srcFmt;
+        switch (detected)
+        {
+            case SparkFormat.R:    srcFmt = TextureFormat.R8;     break;
+            case SparkFormat.RG:   srcFmt = TextureFormat.RG16;   break;
+            case SparkFormat.RGBA: srcFmt = TextureFormat.RGBA32; break;
+            default:               srcFmt = TextureFormat.RGB24;  break;
+        }
+        var copy = new Texture2D(source.width, source.height, srcFmt, mipChain: false);
+        copy.SetPixels32(source.GetPixels32());
+        copy.Apply(updateMipmaps: false, makeNoLongerReadable: false);
+        copy.Compress(highQuality: true);
+        return copy;
     }
 
     /// <summary>Map filename to a SparkFormat based on common PBR texture naming.</summary>
@@ -232,7 +254,7 @@ public class SlideshowMode : SparkDemoMode
 
         // ── Buttons (drawn BEFORE view input so they consume their MouseDowns first) ──
         const float btnGap = 4f;
-        const float pauseW = 70f, arrowW = 30f, viewBtnW = 60f;
+        const float pauseW = 70f, arrowW = 30f, viewBtnW = 60f, encBtnW = 72f;
         // Compressed gets a slightly wider slot because its label is the longest of the three.
         const float modeBtnW = 80f, modeBtnWWide = 88f, btnH = 24f;
         const float rowGap = 6f;
@@ -245,7 +267,7 @@ public class SlideshowMode : SparkDemoMode
         DrawModeButton(new Rect(mx + modeBtnW + btnGap + modeBtnWWide + btnGap,    modeY, modeBtnW,     btnH), $"Diff ×{diffAmplify:F0}", ViewMode.Diff);
 
         // Playback + fit row stays anchored at the bottom.
-        float playRowW = pauseW + btnGap + arrowW + btnGap + arrowW + btnGap + viewBtnW;
+        float playRowW = pauseW + btnGap + arrowW + btnGap + arrowW + btnGap + viewBtnW + btnGap + encBtnW;
         float btnY = bounds.y + bounds.height - 32f;
         float x = bounds.x + (bounds.width - playRowW) * 0.5f;
 
@@ -270,6 +292,15 @@ public class SlideshowMode : SparkDemoMode
         if (GUI.Button(new Rect(x, btnY, viewBtnW, btnH), "Fit"))
         {
             if (_encoded != null) _pz.ResetFit(_encoded.width, _encoded.height);
+        }
+        x += viewBtnW + btnGap;
+
+        if (GUI.Button(new Rect(x, btnY, encBtnW, btnH),
+            new GUIContent(_useBuiltin ? "Builtin" : "Spark",
+                           "Toggle encoder: Spark (GPU) vs Texture2D.Compress (CPU runtime, internal testing).")))
+        {
+            _useBuiltin = !_useBuiltin;
+            Encode();
         }
 
         // Keyboard: Space toggles between Compressed and the previously-viewed alternative.
