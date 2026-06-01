@@ -136,7 +136,9 @@ public static class Spark
     /// <param name="format">Target compressed format (concrete or generic).</param>
     /// <param name="sourceMip">Mip level of <paramref name="source"/> to sample (default 0).</param>
     /// <param name="destMip">Mip level of <paramref name="destination"/> to write into (default 0).</param>
-    public static void EncodeTexture(CommandBuffer cmd, Texture source, Texture destination, SparkFormat format, int sourceMip = 0, int destMip = 0)
+    /// <param name="destX">X offset (in destination texels, block-aligned) to write the encoded result at. Lets you encode straight into a sub-region of an atlas.</param>
+    /// <param name="destY">Y offset (in destination texels, block-aligned) to write the encoded result at.</param>
+    public static void EncodeTexture(CommandBuffer cmd, Texture source, Texture destination, SparkFormat format, int sourceMip = 0, int destMip = 0, int destX = 0, int destY = 0)
     {
         Debug.Assert(cmd != null);
         Debug.Assert(source != null);
@@ -178,7 +180,7 @@ public static class Spark
 
         if (needsOutputCopy) {
             // This is causing issues on non-multiple of 4 texture dimensions. For example, a 6x4 texture has 2x1 blocks and expects the destination to be 8x4.
-            cmd.CopyTexture(rt, 0, 0, 0, 0, blockW, blockH, destination, 0, destMip, 0, 0);
+            cmd.CopyTexture(rt, 0, 0, 0, 0, blockW, blockH, destination, 0, destMip, destX, destY);
         }
     }
 

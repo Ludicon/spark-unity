@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.Networking;
-using UnityEngine.Profiling;
+using UnityEngine.Experimental.Rendering;
 
 // Mip-chain viewer: encodes a texture with a full mip chain and displays one mip level at a
 // time. Owns its own source texture (loaded WITH mipChain) rather than borrowing from
@@ -172,7 +172,7 @@ public class MipmapMode : SparkDemoMode
                 int mh = Mathf.Max(1, _encoded.height >> _selectedMip);
                 lines.Add($"mip {_selectedMip} of {_encoded.mipmapCount - 1}  ({mw}×{mh})");
 
-                long vmem = Profiler.GetRuntimeMemorySizeLong(_encoded);
+                long vmem = GraphicsFormatUtility.ComputeMipChainSize(_encoded.width, _encoded.height, _encoded.graphicsFormat, _encoded.mipmapCount);
                 lines.Add($"{format} → {_encoded.format}  VMem {FormatBytes(vmem)}");
             }
             if (!string.IsNullOrEmpty(_status)) lines.Add(_status);

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Profiling;
+using UnityEngine.Experimental.Rendering;
 
 // 3D object viewer. Loads a glTF/.glb at runtime from StreamingAssets via glTFast; its JPEG/PNG
 // textures are decoded and Spark-encoded on device by SparkGltfastAddon (an IDefaultImageFormatLoader
@@ -269,7 +269,7 @@ public class ObjectMode : SparkDemoMode
                     var t = mat.GetTexture(id);
                     if (t == null || !seen.Add(t)) continue;
                     _texCount++;
-                    _texVMem += Profiler.GetRuntimeMemorySizeLong(t);
+                    _texVMem += GraphicsFormatUtility.ComputeMipChainSize(t.width, t.height, t.graphicsFormat, t.mipmapCount);
                 }
             }
         }

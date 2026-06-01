@@ -217,7 +217,7 @@ public class BenchmarkMode : SparkDemoMode
         int count;
         try
         {
-            double calSeconds = RunBatch(src, dst, requested, initialDispatchCount);
+            double calSeconds = RunBatch(src, dst, resolved, initialDispatchCount);
             count = (calSeconds > 0.001)
                 ? Mathf.Clamp(
                     Mathf.CeilToInt(initialDispatchCount * (float)(perRunSeconds / calSeconds)),
@@ -248,7 +248,7 @@ public class BenchmarkMode : SparkDemoMode
 
             try
             {
-                double s = RunBatch(src, dst, requested, count);
+                double s = RunBatch(src, dst, resolved, count);
                 if (s < bestSeconds) bestSeconds = s;
                 sumSeconds += s;
             }
