@@ -49,10 +49,10 @@ public class CompareMode : SparkDemoMode
 
     static readonly Row[] s_rows =
     {
-        new Row { label = "R",           sparkFormat = SparkFormat.R,    channelMask = 1,  builtinSupported = true,  builtinSrc = TextureFormat.R8,     sourceName = "Material.003_Roughness" },
-        new Row { label = "RG",          sparkFormat = SparkFormat.RG,   channelMask = 3,  builtinSupported = true,  builtinSrc = TextureFormat.RG16,   sourceName = "Ground037_1K-PNG_NormalGL" },
-        new Row { label = "RGB (4 bpp)", sparkFormat = SparkFormat.RGB,  preferLowQuality = true,  channelMask = 7,  builtinSupported = true,  builtinSrc = TextureFormat.RGB24,  sourceName = "Material.003_Base_color" },
-        new Row { label = "RGB (8 bpp)", sparkFormat = SparkFormat.RGB,  channelMask = 7,  builtinSupported = false,                                   sourceName = "Material.003_Base_color" },
+        new Row { label = "R",           sparkFormat = SparkFormat.R,    channelMask = 1,  builtinSupported = true,  builtinSrc = TextureFormat.R8,     sourceName = "Rocks001_1K-PNG_Roughness" },
+        new Row { label = "RG",          sparkFormat = SparkFormat.RG,   channelMask = 3,  builtinSupported = true,  builtinSrc = TextureFormat.RG16,   sourceName = "Rocks001_1K-PNG_NormalGL" },
+        new Row { label = "RGB (4 bpp)", sparkFormat = SparkFormat.RGB,  preferLowQuality = true,  channelMask = 7,  builtinSupported = true,  builtinSrc = TextureFormat.RGB24,  sourceName = "Rocks001_1K-PNG_Color" },
+        new Row { label = "RGB (8 bpp)", sparkFormat = SparkFormat.RGB,  channelMask = 7,  builtinSupported = false,                                   sourceName = "Rocks001_1K-PNG_Color" },
         new Row { label = "RGBA",        sparkFormat = SparkFormat.RGBA, channelMask = 15, builtinSupported = true,  builtinSrc = TextureFormat.RGBA32, sourceName = "quadTexture_rgba" },
     };
 
@@ -402,7 +402,7 @@ public class CompareMode : SparkDemoMode
     static Font s_monoFont;
     static bool s_monoTried;
 
-    static GUIStyle Body()  { return s_body  ?? (s_body  = new GUIStyle(GUI.skin.label) { richText = true, fontSize = 13 }); }
+    static GUIStyle Body() { return s_body ?? (s_body = new GUIStyle(GUI.skin.label) { richText = true, fontSize = 13 }); }
     static GUIStyle Faded() { return s_faded ?? (s_faded = new GUIStyle(GUI.skin.label) { richText = true, fontSize = 11, normal = { textColor = new Color(0.7f, 0.7f, 0.7f) } }); }
 
     static GUIStyle Mono()
