@@ -47,7 +47,7 @@ Generic formats (`SparkFormat.R`, `RG`, `RGB`, `RGBA`) auto-resolve to the best 
 
 ## Compatibility
 
-*Spark for Unity* has been tested on Metal (macOS, iOS), Vulkan (Android, Windows), OpenGL ES 3.1 (Android), and Direct3D (Windows). It has been tested on Unity versions 6.3 to 6.6.
+*Spark for Unity* has been tested on Metal (macOS, iOS), Vulkan (Android, Windows), OpenGL ES 3.1 (Android), and Direct3D (Windows). It has been tested on Unity versions 6.3 to 6.6, but it probably works on earlier versions as well.
 
 The API may change, and it has not been tested thoroughly on all platforms and devices. If you encounter any issues, please report them at: https://github.com/Ludicon/spark-unity/issues
 
@@ -69,6 +69,15 @@ Spark.Preload(SparkFormat.RGB, SparkFormat.RGBA);
 // Release cached resources when done
 Spark.ReleaseCache();
 ```
+
+A lower level `EncodeTexture` function is also available:
+
+```csharp
+public static void EncodeTexture(CommandBuffer cmd, Texture source, Texture destination, SparkFormat format, int sourceMip = 0, int destMip = 0, int destX = 0, int destY = 0);
+```
+
+It allows you provide a command buffer explicitly to batch-encode multiple textures using the same command buffer and to use the async compute queue. It also allows you to control the mipmap level and coordinates within the destination texture explicitly, letting you encode straight into a sub-region of an atlas.
+
 
 ## Demo
 
