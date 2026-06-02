@@ -14,47 +14,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  macos:
-    runs-on: [self-hosted, macos]
-
-    defaults:
-      run:
-        shell: bash
+  build:
+    name: Compile
+    # GameCI runs on Ubuntu via Docker. Works on a public repo's GitHub-hosted runner.
+    # See https://game.ci/docs/github/getting-started for license setup.
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
           fetch-depth: 1
-          lfs: false # compile gate doesn't need the LFS binary assets (models/textures)
+          lfs: false # compile doesn't need the LFS binary assets
 
-      - name: Resolve Unity editor
+      # Speed up subsequent runs by caching Unity's imported Library/.
+      - name: Cache Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: Library-
+
+      # The GameCI Unity image is ~7 GB; default ubuntu-latest only has ~14 GB free.
+      - name: Free disk space
         run: |
-          ver=$(grep -oE '6000\.[0-9]+\.[0-9]+f[0-9]+' ProjectSettings/ProjectVersion.txt | head -1)
-          unity="/Applications/Unity/Hub/Editor/$ver/Unity.app/Contents/MacOS/Unity"
-          echo "Project requires Unity $ver"
-          if [ ! -x "$unity" ]; then
-            echo "::error::Unity $ver is not installed on this runner (expected $unity). Install it via Unity Hub."
-            exit 1
-          fi
-          echo "UNITY=$unity" >> "$GITHUB_ENV"
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
 
-      - name: Compile (Unity batch import)
-        run: |
-          set -o pipefail
-          # Opening the project in batch mode imports assets and compiles every C# assembly.
-          # Unity does NOT reliably return a non-zero exit on C# compile errors, so we also scan
-          # the log for "error CS…" and fail on that.
-          "$UNITY" -batchmode -quit -nographics \
-            -projectPath . \
-            -logFile - 2>&1 | tee unity.log
-          status=$?
-          if grep -qE "error CS[0-9]+" unity.log; then
-            echo "::error::C# compilation failed"
-            status=1
-          fi
-          exit $status
-
-      - name: Summarize build errors
-        if: failure()
-        run: python3 .github/workflows/extract_build_errors.py unity.log
+      # We don't ship a build artifact, we just lean on Unity's import + C# compile to
+      # detect breakage. StandaloneLinux64 is the cheapest target on a Linux runner.
+      - name: Unity compile
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }} # Personal: contents of a .ulf
+          # UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          # UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          # UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          targetPlatform: StandaloneLinux64
+          allowDirtyBuild: true
