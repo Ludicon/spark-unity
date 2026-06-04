@@ -20,6 +20,9 @@ public class SlideshowMode : SparkDemoMode
     [Range(1f, 64f)]
     public float diffAmplify = 8f;
 
+    [Tooltip("RGB + Spark encoder only: resolve RGB to the low-quality variant (BC1/ETC2, 4 bpp) instead of the high-quality one (BC7/ASTC, 8 bpp).")]
+    public bool preferLowQuality = false;
+
     [Header("Debug")]
     [Tooltip("Re-encode the current texture every frame. Useful for capturing the Spark dispatch in RenderDoc.")]
     public bool encodeEveryFrame = false;
@@ -117,7 +120,7 @@ public class SlideshowMode : SparkDemoMode
             var sw = Stopwatch.StartNew();
             _encoded = _useBuiltin
                 ? EncodeBuiltin(source, _detectedFormat)
-                : Spark.EncodeTexture(source, _detectedFormat, srgb: true);
+                : Spark.EncodeTexture(source, _detectedFormat, srgb: true, preferLowQuality: preferLowQuality);
             sw.Stop();
             _cpuTimeMs = (float)sw.Elapsed.TotalMilliseconds;
             if (_encoded != null)
@@ -146,7 +149,7 @@ public class SlideshowMode : SparkDemoMode
         var copy = new Texture2D(source.width, source.height, srcFmt, mipChain: false);
         copy.SetPixels32(source.GetPixels32());
         copy.Apply(updateMipmaps: false, makeNoLongerReadable: false);
-        copy.Compress(highQuality: true);
+        copy.Compress(highQuality: false);
         return copy;
     }
 
