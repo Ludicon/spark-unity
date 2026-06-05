@@ -158,6 +158,7 @@ public class VirtualTextureMode : SparkDemoMode
                 else if (_tilesThisFrame < maxTilesPerFrame)
                 {
                     int slot = AllocSlot();
+                    if (slot < 0) continue;   // atlas is full of pages we need this frame; let Resolve fall back
                     RecordTile(pmM, px, py, slot);
                     _resident[key] = new Res { slot = slot, frame = _frame };
                     _tilesThisFrame++;
@@ -230,7 +231,7 @@ public class VirtualTextureMode : SparkDemoMode
         foreach (var kv in _resident)
             if (kv.Value.frame < _frame && kv.Value.frame < oldest) { oldest = kv.Value.frame; evict = kv.Key; }
 
-        if (evict < 0) return 0;
+        if (evict < 0) return -1;        // every slot is in use by a page touched this frame
         int slot = _resident[evict].slot;
         _resident.Remove(evict);
         return slot;
