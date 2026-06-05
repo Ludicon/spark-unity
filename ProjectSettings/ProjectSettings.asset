@@ -168,7 +168,7 @@ PlayerSettings:
   androidMinAspectRatio: 1
   applicationIdentifier:
     Android: com.ludicon.spark_unity_demo
-    Standalone: com.DefaultCompany.3D-Project
+    Standalone: com.ludicon.spark-unity-demo
     iPhone: com.ludicon.spark-unity-demo
   buildNumber:
     Standalone: 0
