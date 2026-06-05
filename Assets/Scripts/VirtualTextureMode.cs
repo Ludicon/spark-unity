@@ -131,10 +131,16 @@ public class VirtualTextureMode : SparkDemoMode
         int rw = Mathf.Max(1, Mathf.RoundToInt(dr.width));
         int rh = Mathf.Max(1, Mathf.RoundToInt(dr.height));
 
-        // Pick the render mip whose texels are ~1:1 with screen pixels; the indirection is built
-        // FINER mips below it so each cell can resolve to a resident finer tile (zoom-out fallback).
+        // Pick the render mip. The natural choice keeps texels ~1:1 with screen pixels; on
+        // displays larger than PAGE × ATLAS_TILES per side that would need more pages than the
+        // atlas can hold, so we bias upward (coarser, fewer texels per pixel) to keep the visible
+        // working set inside the atlas. The indirection is built FINER mips below the render
+        // mip so each cell can resolve to a resident finer tile (zoom-out fallback).
         float texelsPerPixel = Mathf.Max(uvScale.x, 1e-9f) * LOGICAL;
-        _mip = Mathf.Clamp(Mathf.RoundToInt(Mathf.Log(texelsPerPixel, 2f)), 0, MAX_MIP);
+        int naturalMip = Mathf.RoundToInt(Mathf.Log(texelsPerPixel, 2f));
+        float pagesPerSideAtMip0 = Mathf.Max(rw, rh) * texelsPerPixel / (PAGE * ATLAS_TILES);
+        int fitMip = Mathf.Max(0, Mathf.CeilToInt(Mathf.Log(Mathf.Max(pagesPerSideAtMip0, 1e-9f), 2f)));
+        _mip = Mathf.Clamp(Mathf.Max(naturalMip, fitMip), 0, MAX_MIP);
         int mid = Mathf.Max(0, _mip - FINER);
         int pmM = PAGES >> _mip;
         int pmMid = PAGES >> mid;
