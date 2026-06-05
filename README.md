@@ -1,8 +1,8 @@
 # *Spark for Unity*
 
-GPU texture compression for Unity using the [*Spark*](https://github.com/ludicon/spark) codecs.
+GPU texture compression for Unity using the [*Spark*](https://ludicon.com/spark) codecs.
 
-*Spark for Unity* is a Unity package that exposes a subset of the [*Spark*](https://github.com/ludicon/spark) codecs through a simple and lightweight API. It enables the use of procedural textures and standard image formats in Unity applications, encoding them at runtime to native GPU formats like BC7, ASTC, and ETC2, using fast, high-quality GPU compute shaders.
+*Spark for Unity* is a Unity package that exposes a subset of the [*Spark*](https://ludicon.com/spark) codecs through a simple and lightweight API. It enables the use of procedural textures and standard image formats in Unity applications, encoding them at runtime to native GPU formats like BC7, ASTC, and ETC2, using fast, high-quality GPU compute shaders.
 
 This GitHub repository includes a Unity project with several examples:
 
@@ -31,7 +31,7 @@ Add the package to your project via the Unity Package Manager:
 
 ## Features
 
-The *Spark for Unity* package supports a subset of the [*Spark*](https://github.com/ludicon/spark) codecs at a fixed quality level.
+The *Spark for Unity* package supports a subset of the [*Spark*](https://ludicon.com/spark) codecs at a fixed quality level.
 
 The available formats are:
 
