@@ -87,6 +87,7 @@ The included `SparkDemo` scene showcases multiple use cases:
 - **Plasma**: Displays a procedural plasma effect and compresses it in real-time.
 - **Mipmap**: Loads a texture, generates mipmaps in the GPU and compresses them.
 - **glTF**: Loads a glTF model using the glTFast importer and encodes its textures.
+- **Virtual Texture**: Procedural virtual texture with compressed tiles to lower the memory footprint of the atlas texture from 64 MB to 16 MB.
 - **Benchmark**: Measures the compression performance of every format.
 
 ## Frequently Asked Questions
