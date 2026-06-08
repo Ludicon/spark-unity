@@ -1,0 +1,54 @@
+name: build
+
+on:
+  push:
+    branches: ["main"]
+    paths-ignore: ["**.md"]
+  pull_request:
+    branches: ["main"]
+    paths-ignore: ["**.md"]
+  workflow_dispatch: # Enables manual triggering
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Compile
+    # GameCI runs on Ubuntu via Docker. Works on a public repo's GitHub-hosted runner.
+    # See https://game.ci/docs/github/getting-started for license setup.
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          lfs: false # compile doesn't need the LFS binary assets
+
+      # Speed up subsequent runs by caching Unity's imported Library/.
+      - name: Cache Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: Library-
+
+      # The GameCI Unity image is ~7 GB; default ubuntu-latest only has ~14 GB free.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+
+      # We don't ship a build artifact, we just lean on Unity's import + C# compile to
+      # detect breakage. StandaloneLinux64 is the cheapest target on a Linux runner.
+      - name: Unity compile
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }} # Personal: contents of a .ulf
+          # UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          # UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          # UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          targetPlatform: StandaloneLinux64
+          allowDirtyBuild: true
