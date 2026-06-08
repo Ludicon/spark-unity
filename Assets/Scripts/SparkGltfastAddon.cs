@@ -6,22 +6,15 @@ using Unity.Collections;
 using UnityEngine;
 
 // glTFast import add-on that overrides the default JPEG/PNG image loading, so models loaded at
-// runtime (ObjectMode's useRuntimeLoad path) get their textures created through our pipeline —
-// later, Spark-encoded on device.
+// runtime get their textures created through our pipeline
 //
 // We implement IDefaultImageFormatLoader (not plain ITextureImageLoader): it's glTFast's hook for
 // *overriding the core PNG/JPEG decode*, selected per image via IsAbleToLoad(ImageFormat). Plain
-// ITextureImageLoader is for extension formats (WebP/KTX) that redirect the image source — not us.
+// ITextureImageLoader is for extension formats (WebP/KTX) that redirect the image source.
 //
 // Registration is global (RuntimeInitializeOnLoadMethod), so it applies to every runtime
 // GltfImport.Load. The editor ScriptedImporter doesn't run RuntimeInitializeOnLoad callbacks, so
 // edit-time glTF imports are unaffected.
-//
-// STEP 4 (this version): decode the JPEG/PNG, then Spark-encode it on device. Colorspace comes
-// from glTFast's per-slot `linear` flag (srgb = !linear). The channel format is fixed RGB for now;
-// once gltFast is extended to thread per-texture channel usage (step 3) the addon will pick
-// RG/R/RGBA per slot. Fixed RGB is safe for the demo's models: their textures are opaque, and
-// normal maps still render correctly because the shader reconstructs Z from X,Y regardless of B.
 static class SparkGltfastAddon
 {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -76,22 +69,35 @@ class SparkImportAddonInstance : ImportAddonInstance, IDefaultImageFormatLoader
     static bool IsPng(System.ReadOnlySpan<byte> d) =>
         d.Length >= 8 && d[0] == 0x89 && d[1] == 0x50 && d[2] == 0x4E && d[3] == 0x47;
 
+    // Required channel-unaware overload — forward to the channel-aware one with all channels.
     public Task<ImageResult> LoadImage(
         NativeArray<byte>.ReadOnly data,
         bool linear,
         bool readable,
         bool generateMipMaps,
         CancellationToken cancellationToken)
+        => LoadImage(data, linear, readable, generateMipMaps, cancellationToken, 0xF);
+
+    // Channel-aware override — picks the Spark format from glTFast's per-image channel mask.
+    public Task<ImageResult> LoadImage(
+        NativeArray<byte>.ReadOnly data,
+        bool linear,
+        bool readable,
+        bool generateMipMaps,
+        CancellationToken cancellationToken,
+        int channelMask)
     {
         // Decode the compressed bytes into a temporary GPU texture for Spark to sample. `linear`
         // (from the texture's slot usage) sets the colorspace; LoadImage uploads + mips it.
         var decoded = new Texture2D(2, 2, TextureFormat.RGBA32, generateMipMaps, linear);
         decoded.LoadImage(data.ToArray(), markNonReadable: true);
-        Debug.Log($"[SparkAddon] LoadImage: decoded {data.Length}B → {decoded.width}x{decoded.height} " +
-                  $"{decoded.graphicsFormat}; Spark-encoding (linear={linear}, srgb={!linear}, mips={generateMipMaps})…");
 
-        // Spark-encode on device. Fixed RGB until gltFast threads per-texture channel usage.
-        var compressed = Spark.EncodeTexture(decoded, SparkFormat.RGB, srgb: !linear, mips: generateMipMaps);
+        // Channel-minimal Spark format from glTFast's per-image channel mask.
+        var format = FormatForChannels(channelMask);
+        Debug.Log($"[SparkAddon] LoadImage: decoded {data.Length}B → {decoded.width}x{decoded.height} " +
+                  $"{decoded.graphicsFormat}; Spark-encoding {format} (linear={linear}, mask=0x{channelMask:X}, mips={generateMipMaps})…");
+
+        var compressed = Spark.EncodeTexture(decoded, format, srgb: !linear, mips: generateMipMaps);
 
         if (compressed != null)
         {
@@ -103,5 +109,18 @@ class SparkImportAddonInstance : ImportAddonInstance, IDefaultImageFormatLoader
         // Encode declined (format unsupported on this GPU) — fall back to the uncompressed decode.
         Debug.LogWarning($"[SparkAddon] ✗ Spark.EncodeTexture returned null; using uncompressed {decoded.graphicsFormat}");
         return Task.FromResult(new ImageResult(decoded));
+    }
+
+    // Smallest Spark format whose contiguous channel set covers the mask's highest set channel.
+    // e.g. normal R|G → RG, occlusion R → R, metallic-roughness G|B → RGB. A mask of 0 (image
+    // not reached by glTFast's slot pass, e.g. an extension-only texture) falls back to RGBA
+    // so we never under-allocate channels.
+    static SparkFormat FormatForChannels(int mask)
+    {
+        if ((mask & 0x8) != 0) return SparkFormat.RGBA;   // A
+        if ((mask & 0x4) != 0) return SparkFormat.RGB;    // B
+        if ((mask & 0x2) != 0) return SparkFormat.RG;     // G
+        if ((mask & 0x1) != 0) return SparkFormat.R;      // R
+        return SparkFormat.RGBA;                          // unknown → safe superset
     }
 }
